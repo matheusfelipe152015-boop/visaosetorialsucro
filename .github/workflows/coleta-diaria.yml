@@ -1,0 +1,53 @@
+# Rotina diária de coleta de dados (CANAVIS).
+#
+# O que isto faz: todo dia, o GitHub liga um computador temporário, instala o
+# projeto, roda os coletores (jobs/run_daily.py) e desliga. Não depende da sua
+# máquina estar ligada e é gratuito em repositório privado (dentro da cota mensal).
+#
+# IMPORTANTE — banco de dados:
+#   Hoje a coleta grava em SQLite local, que NÃO persiste no GitHub (a máquina é
+#   descartável). Para a coleta valer "de verdade", defina o segredo DATABASE_URL
+#   no repositório (Settings > Secrets and variables > Actions) apontando para o
+#   Supabase. Enquanto o segredo não existir, o fluxo roda em modo de teste
+#   (coleta e mostra o resultado nos logs, sem persistir entre execuções).
+#
+# Horário: o cron do GitHub é sempre em UTC. São Paulo é UTC-3.
+#   '17 9 * * *'  = 09:17 UTC = 06:17 em São Paulo.
+#   Usamos minuto "quebrado" (17) de propósito: agendar no minuto 0 cai na fila
+#   cheia do GitHub e costuma atrasar.
+
+name: Coleta diária
+
+on:
+  schedule:
+    - cron: "17 9 * * *"   # ~06:17 América/Sao_Paulo
+  workflow_dispatch: {}     # botão "rodar agora" na aba Actions (para testar)
+
+# Se uma execução demorar e outra começar, cancela a anterior (evita pilha).
+concurrency:
+  group: coleta-diaria
+  cancel-in-progress: true
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Preparar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -e .
+
+      - name: Rodar a coleta
+        env:
+          # Vazio => SQLite local (modo teste). Preencha o segredo p/ persistir no Supabase.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TIMEZONE: America/Sao_Paulo
+        run: python jobs/run_daily.py

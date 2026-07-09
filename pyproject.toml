@@ -1,0 +1,40 @@
+[project]
+name = "canavis"
+version = "0.1.0"
+description = "Plataforma de inteligência do setor sucroenergético (MVP)"
+requires-python = ">=3.12"
+dependencies = [
+    "streamlit>=1.40",
+    "plotly>=5.24",
+    "kaleido>=0.2.1",
+    "pandas>=2.2",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "httpx>=0.27",
+    "jinja2>=3.1",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "ruff>=0.7"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# HTML inline e asserts de teste tornam algumas linhas naturalmente longas
+"app/**" = ["E501"]
+"tests/**" = ["E501"]
+"db/seeds/**" = ["E501"]
+"src/theme.py" = ["E501"]
+"src/catalog.py" = ["E501"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
