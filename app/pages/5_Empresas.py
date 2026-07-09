@@ -15,11 +15,14 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from src.app_auth import exigir_login
+
 from src.persistence.db import fetch_df, init_schema
 from src.services.setor import soma_metric, tendencia, variacao_pct
 from src.theme import apply_theme
 
 st.set_page_config(page_title="CANAVIS · Empresas", page_icon="⬡", layout="wide")
+exigir_login()
 init_schema()
 apply_theme()
 

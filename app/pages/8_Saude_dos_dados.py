@@ -8,12 +8,25 @@ from datetime import date
 
 import streamlit as st
 
+from src.app_auth import exigir_login
+
 from src.domain.enums import Frequency
 from src.domain.freshness import freshness_status
 from src.persistence.db import fetch_df, init_schema
 from src.theme import apply_theme, fresh_badge
 
+
+def _num(v) -> int:
+    """Converte para int com segurança (None e NaN viram 0)."""
+    try:
+        if v is None or v != v:
+            return 0
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
 st.set_page_config(page_title="CANAVIS · Saúde dos dados", page_icon="⬡", layout="wide")
+exigir_login()
 init_schema()
 apply_theme()
 
