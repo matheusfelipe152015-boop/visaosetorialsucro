@@ -10,6 +10,16 @@ coleta real ser ligada.
 
 from __future__ import annotations
 
+import os as _os
+import sys as _sys
+
+_r = _os.path.abspath(_os.path.dirname(__file__))
+while _r != "/" and not _os.path.isdir(_os.path.join(_r, "src")):
+    _r = _os.path.dirname(_r)
+if _r not in _sys.path:
+    _sys.path.insert(0, _r)
+
+
 import json
 from pathlib import Path
 
