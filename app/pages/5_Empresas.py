@@ -166,6 +166,31 @@ for metric, label in LABELS.items():
 df_comp = pd.DataFrame(tabela).set_index("Indicador")
 st.dataframe(df_comp, width="stretch")
 
+fin = fetch_df(
+    """SELECT c.nome, m.metric, m.valor, m.unidade, m.status_validacao
+       FROM company_metrics m JOIN companies c ON c.code=m.company_code
+       WHERE m.grupo='financeiro' AND m.fonte LIKE 'cvm%'"""
+)
+if not fin.empty:
+    st.markdown("##### Financeiro (CVM)")
+    if (fin["status_validacao"] == "a_conferir").any():
+        st.markdown(
+            '<div class="demobar">⬡ Valores extraidos automaticamente das '
+            "demonstracoes da CVM — a conferir na fonte oficial.</div>",
+            unsafe_allow_html=True,
+        )
+    FIN_LABELS = {"receita": "Receita liquida", "lucro_liquido": "Lucro liquido",
+                  "divida_total": "Divida total (passivo)"}
+    linhas_fin = []
+    empresas_fin = fin["nome"].drop_duplicates().tolist()
+    for metric, label in FIN_LABELS.items():
+        linha = {"Indicador (R$ mil)": label}
+        for nome in empresas_fin:
+            sub = fin[(fin["nome"] == nome) & (fin["metric"] == metric)]
+            linha[nome] = float(sub.iloc[0]["valor"]) if not sub.empty else None
+        linhas_fin.append(linha)
+    st.dataframe(pd.DataFrame(linhas_fin).set_index("Indicador (R$ mil)"), width="stretch")
+
 st.markdown(
     '<div class="src" style="margin-top:14px;line-height:1.6">Dados operacionais divulgados pelas '
     "próprias usinas em releases de produção. A leitura agregada soma as usinas acompanhadas para "

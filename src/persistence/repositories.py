@@ -112,3 +112,46 @@ def log_run(result: CollectorResult) -> None:
             )
     except Exception as exc:  # noqa: BLE001 — log de saúde nunca derruba o job
         print(f"  (aviso: não foi possível registrar a saúde de {result.source_code}: {exc})")
+
+
+def upsert_company_metrics(rows: list[dict]) -> int:
+    """Insere/atualiza métricas de empresa (idempotente). Devolve quantas novas."""
+    from datetime import datetime
+
+    eng = get_engine()
+    new = 0
+    with eng.begin() as conn:
+        for r in rows:
+            periodo = r.get("periodo", "")
+            fonte = r.get("fonte", "")
+            exists = conn.execute(
+                text(
+                    "SELECT 1 FROM company_metrics "
+                    "WHERE company_code=:c AND metric=:m AND periodo=:p AND fonte=:f"
+                ),
+                {"c": r["company"], "m": r["metric"], "p": periodo, "f": fonte},
+            ).first()
+            if not exists:
+                new += 1
+            conn.execute(
+                text(
+                    """INSERT INTO company_metrics
+                       (id, company_code, metric, grupo, safra, periodo, data_referencia,
+                        valor, unidade, fonte, data_publicacao, data_coleta,
+                        collector_version, status_validacao, url_original)
+                       VALUES (:id,:c,:m,:g,:sf,:p,:dr,:v,:u,:f,:dp,:dc,:cv,:st,:url)
+                       ON CONFLICT (company_code, metric, periodo, fonte) DO UPDATE SET
+                         valor=excluded.valor, data_referencia=excluded.data_referencia,
+                         data_coleta=excluded.data_coleta,
+                         status_validacao=excluded.status_validacao"""
+                ),
+                {
+                    "id": uuid.uuid4().hex, "c": r["company"], "m": r["metric"],
+                    "g": r.get("grupo", "financeiro"), "sf": r.get("safra"), "p": periodo,
+                    "dr": r.get("data_referencia"), "v": r["valor"], "u": r.get("unidade"),
+                    "f": fonte, "dp": r.get("data_publicacao"), "dc": datetime.utcnow(),
+                    "cv": r.get("collector_version", "0.1.0"),
+                    "st": r.get("status_validacao", "a_conferir"), "url": r.get("url_original"),
+                },
+            )
+    return new

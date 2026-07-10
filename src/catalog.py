@@ -19,7 +19,7 @@ SOURCES = [
     ("anp", "ANP · dados abertos", "ANP", "A", "csv", "aberta", 1, "weekly", 1, "Atualizado"),
     ("conab", "CONAB", "CONAB", "A", "csv", "aberta", 1, "eventual", 1, "Planejado"),
     ("comex", "Comex Stat · SECEX", "MDIC/SECEX", "A", "api", "aberta", 1, "monthly", 1, "Atualizado"),
-    ("cvm", "CVM · dados abertos", "CVM", "A", "csv", "aberta", 1, "eventual", 1, "Planejado"),
+    ("cvm", "CVM · dados abertos", "CVM", "A", "csv", "aberta", 1, "eventual", 1, "Atualizado"),
     ("ccee", "CCEE / ANEEL", "CCEE", "A", "portal", "a validar", 0, "weekly", 1, "Planejado"),
     ("usda", "USDA FAS · PSD", "USDA", "A", "api", "aberta", 1, "monthly", 1, "Planejado"),
     ("inmet", "INMET · estações automáticas", "INMET/MAPA", "A", "api", "aberta", 1, "weekly", 1, "Atualizado"),
