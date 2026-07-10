@@ -11,8 +11,9 @@ from config.settings import settings
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "db" / "migrations"
 
-# Trechos de erro considerados benignos ao reaplicar uma migração (idempotência).
 _BENIGN = ("already exists", "duplicate column")
+
+_schema_ready = False
 
 
 @lru_cache(maxsize=2)
@@ -21,19 +22,15 @@ def get_engine(readonly: bool = False) -> Engine:
     if url.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
     else:
-        # Pooler do Supabase (porta 6543) nao aceita prepared statements.
-        # prepare_threshold=None desliga isso de vez no psycopg.
         connect_args = {"prepare_threshold": None}
     return create_engine(url, connect_args=connect_args, pool_pre_ping=True, future=True)
 
 
 def init_schema() -> None:
-    """Aplica todas as migrações em ordem. Reexecução é segura.
-
-    Cada comando roda em sua própria transação. Isso é essencial no PostgreSQL:
-    um erro benigno (ex.: coluna já existe) não contamina os comandos seguintes,
-    pois no Postgres um erro aborta o bloco inteiro da transação.
-    """
+    """Aplica as migrações uma vez por processo. Reexecução é barata (no-op)."""
+    global _schema_ready
+    if _schema_ready:
+        return
     eng = get_engine()
     is_sqlite = eng.url.get_backend_name() == "sqlite"
     for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
@@ -48,12 +45,28 @@ def init_schema() -> None:
                     conn.exec_driver_sql(stmt)
             except Exception as exc:  # noqa: BLE001
                 if any(b in str(exc).lower() for b in _BENIGN):
-                    continue  # coluna/tabela já existe — ok ao reaplicar
+                    continue
                 raise
+    _schema_ready = True
 
 
-def fetch_df(query: str, params: dict | None = None):
+def _fetch_df_raw(query: str, params: dict | None = None):
     import pandas as pd
 
     with get_engine(readonly=True).connect() as conn:
         return pd.read_sql_query(text(query), conn, params=params or {})
+
+
+try:
+    import streamlit as st
+
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _fetch_df_cached(query: str, params: dict | None = None):
+        return _fetch_df_raw(query, params)
+
+    def fetch_df(query: str, params: dict | None = None):
+        return _fetch_df_cached(query, params)
+
+except Exception:
+    def fetch_df(query: str, params: dict | None = None):
+        return _fetch_df_raw(query, params)

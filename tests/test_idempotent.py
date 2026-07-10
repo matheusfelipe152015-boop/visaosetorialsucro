@@ -42,5 +42,5 @@ def test_upsert_idempotent(tmp_path, monkeypatch):
 
     assert new1 == 1
     assert new2 == 0
-    count = db.fetch_df("SELECT COUNT(*) c FROM indicator_values").iloc[0]["c"]
+    count = db._fetch_df_raw("SELECT COUNT(*) c FROM indicator_values").iloc[0]["c"]
     assert count == 1
