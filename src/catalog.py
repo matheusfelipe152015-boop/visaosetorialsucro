@@ -40,6 +40,10 @@ INDICATORS = [
     # code, nome, categoria, unidade, moeda, escala, source, freq, destaque
     # Câmbio & macro
     ("usd_brl", "Câmbio USD/BRL (PTAX)", "Câmbio & macro", "BRL/USD", "BRL", "unit", "bcb_sgs", "daily", 1),
+    ("selic_meta", "Selic meta", "Câmbio & macro", "% a.a.", None, "unit", "bcb_sgs", "daily", 0),
+    ("ipca_mensal", "IPCA (mês)", "Câmbio & macro", "% mês", None, "unit", "bcb_sgs", "monthly", 0),
+    ("igpm_mensal", "IGP-M (mês)", "Câmbio & macro", "% mês", None, "unit", "bcb_sgs", "monthly", 0),
+    ("cdi_diario", "CDI", "Câmbio & macro", "% a.d.", None, "unit", "bcb_sgs", "daily", 0),
     # Petróleo & energia
     ("brent", "Brent", "Petróleo & energia", "US$/bbl", "USD", "unit", "eia", "daily", 1),
     ("pld_sudeste", "PLD — Sudeste/CO", "Petróleo & energia", "R$/MWh", "BRL", "unit", "ccee", "weekly", 0),

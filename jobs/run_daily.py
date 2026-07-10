@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.catalog import register_catalog
 from src.collectors.base import Collector
 from src.collectors.market.anp_precos import AnpPrecosCollector
+from src.collectors.market.bcb_macro import BcbMacroCollector
 from src.collectors.market.bcb_ptax import BcbPtaxCollector
 from src.collectors.market.comex_export import ComexExportCollector
 from src.persistence.db import get_engine, init_schema
@@ -31,7 +32,8 @@ def _preparar_catalogo() -> None:
 
 def coletores() -> list[Collector]:
     return [
-        BcbPtaxCollector(days=1825),   # câmbio USD/BRL (~5 anos)
+        BcbPtaxCollector(days=1825),
+        BcbMacroCollector(days=365),   # câmbio USD/BRL (~5 anos)
         AnpPrecosCollector(),          # preços de combustíveis (mês corrente)
         ComexExportCollector(),        # exportações de açúcar e etanol (24 meses)
     ]
