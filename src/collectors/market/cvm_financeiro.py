@@ -25,9 +25,15 @@ CONTAS = {
 
 
 def _num(valor):
-    v = (valor or "").strip().replace(".", "").replace(",", ".")
+    v = (valor or "").strip()
     if not v or v == "-":
         return None
+    if "," in v:
+        v = v.replace(".", "").replace(",", ".")
+    elif "." in v:
+        partes = v.split(".")
+        if all(len(p) == 3 for p in partes[1:]):
+            v = v.replace(".", "")
     try:
         return float(v)
     except ValueError:
