@@ -60,7 +60,7 @@ def _fetch_df_raw(query: str, params: dict | None = None):
 try:
     import streamlit as st
 
-    @st.cache_data(ttl=300, show_spinner=False)
+    @st.cache_data(ttl=600, show_spinner=False)
     def _fetch_df_cached(query: str, params: dict | None = None):
         return _fetch_df_raw(query, params)
 

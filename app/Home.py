@@ -75,13 +75,18 @@ for col, (_, r) in zip(cols, movers.iterrows(), strict=False):
 articles = fetch_df(
     "SELECT id, titulo, data_publicacao, source_code, regiao, segmento FROM news_articles"
 )
-mentions = fetch_df("SELECT article_id, company_code FROM article_company_mentions")
 companies = fetch_df("SELECT code, nome FROM companies")
-topics_map = fetch_df(
-    """SELECT at.article_id, t.nome FROM article_topics at
-       JOIN news_topics t ON t.code = at.topic_code"""
-)
 watch = set(fetch_df("SELECT company_code FROM watchlists")["company_code"])
+if not articles.empty:
+    mentions = fetch_df("SELECT article_id, company_code FROM article_company_mentions")
+    topics_map = fetch_df(
+        """SELECT at.article_id, t.nome FROM article_topics at
+           JOIN news_topics t ON t.code = at.topic_code"""
+    )
+else:
+    import pandas as _pd
+    mentions = _pd.DataFrame(columns=["article_id", "company_code"])
+    topics_map = _pd.DataFrame(columns=["article_id", "nome"])
 name_by_code = dict(zip(companies["code"], companies["nome"], strict=False))
 
 f1, f2, f3, f4, f5, f6 = st.columns([1.1, 1, 1, 1, 1, 1.2])
