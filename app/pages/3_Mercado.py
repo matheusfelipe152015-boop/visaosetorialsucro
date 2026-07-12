@@ -24,7 +24,7 @@ from src.domain.freshness import freshness_status
 from src.persistence.db import fetch_df, init_schema
 from src.theme import CANE, apply_theme, chip, fresh_badge, plotly_template
 
-st.set_page_config(page_title="CANAVIS · Mercado", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Mercado", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()

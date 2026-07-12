@@ -104,7 +104,7 @@ class CvmFinanceiroCollector:
 
     def collect(self):
         url = CVM_DFP_URL.format(ano=self.ano)
-        resp = httpx.get(url, timeout=120, headers={"User-Agent": "canavis/0.1"})
+        resp = httpx.get(url, timeout=120, headers={"User-Agent": "visaosetorialsucro/0.1"})
         resp.raise_for_status()
         linhas = []
         with zipfile.ZipFile(io.BytesIO(resp.content)) as z:

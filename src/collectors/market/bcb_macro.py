@@ -68,7 +68,7 @@ class BcbMacroCollector(Collector):
                     BCB_URL.format(serie=serie),
                     params=params,
                     timeout=60,
-                    headers={"User-Agent": "canavis/0.1"},
+                    headers={"User-Agent": "visaosetorialsucro/0.1"},
                 )
                 resp.raise_for_status()
                 todos.extend(parse_sgs_serie(resp.json(), code, unidade))

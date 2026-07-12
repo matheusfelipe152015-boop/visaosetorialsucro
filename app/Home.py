@@ -19,12 +19,13 @@ import streamlit as st
 from src.app_auth import exigir_login
 
 from src.domain.enums import Frequency
+from src.formato import fmt_indicador, fmt_valor
 from src.domain.freshness import freshness_status
 from src.persistence.db import fetch_df, init_schema
 from src.services.news import PERIODO_DIAS, TODAS, filter_articles
 from src.theme import apply_theme, fresh_badge
 
-st.set_page_config(page_title="CANAVIS · Visão executiva", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Visão executiva", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()
@@ -57,19 +58,26 @@ movers = fetch_df(
     """
 )
 
-cols = st.columns(max(len(movers), 1))
-for col, (_, r) in zip(cols, movers.iterrows(), strict=False):
-    ref = date.fromisoformat(str(r["data_referencia"]))
-    status = freshness_status(ref, Frequency(r["frequencia"]))
-    with col:
-        st.markdown(
-            f"""<div class="cv-kpi">
-              <div class="nm">{r['nome']} <span class="src">{r['unidade']}</span></div>
-              <div class="val">{r['valor']:.4g}</div>
-              <div style="margin-top:8px">{fresh_badge(status, ref=ref.strftime('%d/%m'))}</div>
+POR_LINHA = 4
+linhas_kpi = [movers.iloc[i:i + POR_LINHA] for i in range(0, len(movers), POR_LINHA)]
+for bloco in linhas_kpi:
+    cols = st.columns(POR_LINHA)
+    for col, (_, r) in zip(cols, bloco.iterrows(), strict=False):
+        ref = date.fromisoformat(str(r["data_referencia"]))
+        status = freshness_status(ref, Frequency(r["frequencia"]))
+        txt, un = fmt_indicador(r["valor"], r["unidade"])
+        with col:
+            st.markdown(
+                f"""<div class="cv-kpi">
+              <div>
+                <div class="nm">{r['nome']}</div>
+                <div class="un">{un}</div>
+              </div>
+              <div class="val">{txt}</div>
+              <div>{fresh_badge(status, ref=ref.strftime('%d/%m'))}</div>
             </div>""",
-            unsafe_allow_html=True,
-        )
+                unsafe_allow_html=True,
+            )
 
 # ── filtros interativos ──────────────────────────────────────────────────
 articles = fetch_df(
@@ -131,9 +139,13 @@ with left:
         )
     if not rows:
         rows = '<div class="src" style="padding:14px 0">Nenhuma notícia para os filtros selecionados.</div>'
+    aviso_demo = (
+        '<div class="demobar" style="margin:6px 0 12px">\u2b21 Not\u00edcias de <b>demonstra\u00e7\u00e3o</b> \u2014 '
+        "t\u00edtulos ilustrativos, n\u00e3o s\u00e3o reais. A coleta de not\u00edcias ainda n\u00e3o foi ligada.</div>"
+    )
     st.markdown(
-        f'<div class="cv-card"><h3>Principais notícias '
-        f'<span class="src">· {len(filt)} de {len(articles)}</span></h3>{rows}</div>',
+        f'<div class="cv-card"><h3>Principais not\u00edcias '
+        f'<span class="src">\u00b7 {len(filt)} de {len(articles)}</span></h3>{aviso_demo}{rows}</div>',
         unsafe_allow_html=True,
     )
 
@@ -154,7 +166,7 @@ with right:
             f'<div style="display:flex;justify-content:space-between;padding:10px 0;'
             f'border-bottom:1px solid #EFEBE0"><span style="font-weight:600">{x["nome"]}'
             f'<br><span class="src">{x["source_code"]}</span></span>'
-            f'<span class="mono" style="font-weight:600">{x["valor"]:.4g}</span></div>'
+            f'<span class="mono" style="font-weight:600">{fmt_valor(x["valor"])}</span></div>'
         )
     st.markdown(f'<div class="cv-card"><h3>Indicadores em movimento</h3>{body}</div>', unsafe_allow_html=True)
 

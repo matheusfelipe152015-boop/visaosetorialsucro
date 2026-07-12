@@ -35,7 +35,7 @@ def _num(v) -> int:
     except (TypeError, ValueError):
         return 0
 
-st.set_page_config(page_title="CANAVIS · Saúde dos dados", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Saúde dos dados", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()

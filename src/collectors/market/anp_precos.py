@@ -225,7 +225,7 @@ class AnpPrecosCollector(Collector):
             try:
                 resp = httpx.get(
                     url, timeout=120, follow_redirects=True,
-                    headers={"User-Agent": "canavis/0.1 (intel-sucroenergetico)"},
+                    headers={"User-Agent": "visaosetorialsucro/0.1 (intel-sucroenergetico)"},
                 )
                 resp.raise_for_status()
                 if not resp.content or len(resp.content) < 200:

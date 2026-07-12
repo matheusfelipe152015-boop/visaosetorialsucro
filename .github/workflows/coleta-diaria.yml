@@ -1,4 +1,4 @@
-# Rotina diária de coleta de dados (CANAVIS).
+# Rotina diária de coleta de dados (VISÃO SETORIAL SUCRO).
 #
 # O que isto faz: todo dia, o GitHub liga um computador temporário, instala o
 # projeto, roda os coletores (jobs/run_daily.py) e desliga. Não depende da sua

@@ -28,7 +28,7 @@ from src.domain.freshness import freshness_status
 from src.persistence.db import fetch_df, init_schema
 from src.theme import apply_theme, fresh_badge
 
-st.set_page_config(page_title="CANAVIS · Indicadores", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Indicadores", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()

@@ -73,7 +73,7 @@ class BcbPtaxCollector(Collector):
             url,
             params=params,
             timeout=30,
-            headers={"User-Agent": "canavis/0.1 (intel-sucroenergetico)"},
+            headers={"User-Agent": "visaosetorialsucro/0.1 (intel-sucroenergetico)"},
         )
         resp.raise_for_status()
         return parse_sgs(resp.json())

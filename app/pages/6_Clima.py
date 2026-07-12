@@ -32,7 +32,7 @@ from src.persistence.db import fetch_df, init_schema
 from src.services.chuva import REGIOES, anomalia, classifica_anomalia
 from src.theme import apply_theme, plotly_template
 
-st.set_page_config(page_title="CANAVIS · Clima", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Clima", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()

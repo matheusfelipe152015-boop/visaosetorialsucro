@@ -1,4 +1,4 @@
-# CANAVIS — Inteligência do setor sucroenergético (MVP)
+# VISÃO SETORIAL SUCRO — Inteligência do setor sucroenergético (MVP)
 
 Plataforma web privada que centraliza notícias, indicadores de mercado, dados de
 safra/produção e fatos relevantes do setor sucroenergético brasileiro, para apoiar

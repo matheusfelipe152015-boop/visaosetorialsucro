@@ -1,5 +1,5 @@
 [project]
-name = "canavis"
+name = "visaosetorialsucro"
 version = "0.1.0"
 description = "Plataforma de inteligência do setor sucroenergético (MVP)"
 requires-python = ">=3.12"

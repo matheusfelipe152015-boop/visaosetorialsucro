@@ -110,7 +110,7 @@ class ComexExportCollector(Collector):
             API_URL,
             json=body,
             timeout=120,
-            headers={"User-Agent": "canavis/0.1 (intel-sucroenergetico)"},
+            headers={"User-Agent": "visaosetorialsucro/0.1 (intel-sucroenergetico)"},
         )
         resp.raise_for_status()
         return parse_resposta(resp.json())

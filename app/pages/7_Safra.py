@@ -21,7 +21,7 @@ from src.app_auth import exigir_login
 from src.persistence.db import fetch_df, init_schema
 from src.theme import apply_theme
 
-st.set_page_config(page_title="CANAVIS · Safra", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Safra", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()
@@ -118,8 +118,9 @@ fig.update_layout(
 )
 st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
-st.markdown("##### Ranking por estado")
-rank = dados.sort_values("valor", ascending=False)[["uf", "regiao", "valor"]].head(10)
+st.markdown("##### Todos os estados")
+rank = dados.sort_values("valor", ascending=False)[["uf", "regiao", "valor"]].copy()
+rank["valor"] = rank["valor"].round(1)
 rank.columns = ["UF", "Regiao", f"{label} ({unidade})"]
 st.dataframe(rank.set_index("UF"), width="stretch")
 

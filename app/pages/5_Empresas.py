@@ -22,16 +22,19 @@ if _r not in _sys.path:
     _sys.path.insert(0, _r)
 
 
+from datetime import date
+
 import pandas as pd
 import streamlit as st
 
 from src.app_auth import exigir_login
 
+from src.formato import fmt_moeda_mil
 from src.persistence.db import fetch_df, init_schema
 from src.services.setor import soma_metric, tendencia, variacao_pct
 from src.theme import apply_theme
 
-st.set_page_config(page_title="CANAVIS · Empresas", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Empresas", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()
@@ -167,29 +170,54 @@ df_comp = pd.DataFrame(tabela).set_index("Indicador")
 st.dataframe(df_comp, width="stretch")
 
 fin = fetch_df(
-    """SELECT c.nome, m.metric, m.valor, m.unidade, m.status_validacao
+    """SELECT c.nome, m.metric, m.valor, m.status_validacao, m.data_referencia
        FROM company_metrics m JOIN companies c ON c.code=m.company_code
        WHERE m.grupo='financeiro' AND m.fonte LIKE 'cvm%'"""
 )
 if not fin.empty:
-    st.markdown("##### Financeiro (CVM)")
+    st.markdown("### Financeiro")
     if (fin["status_validacao"] == "a_conferir").any():
         st.markdown(
-            '<div class="demobar">⬡ Valores extraidos automaticamente das '
-            "demonstracoes da CVM — a conferir na fonte oficial.</div>",
+            '<div class="demobar">\u2b21 Extraido automaticamente das demonstracoes da CVM \u2014 '
+            "confira na fonte oficial antes de usar em decisao.</div>",
             unsafe_allow_html=True,
         )
-    FIN_LABELS = {"receita": "Receita liquida", "lucro_liquido": "Lucro liquido",
-                  "divida_total": "Divida total (passivo)"}
-    linhas_fin = []
-    empresas_fin = fin["nome"].drop_duplicates().tolist()
-    for metric, label in FIN_LABELS.items():
-        linha = {"Indicador (R$ mil)": label}
-        for nome in empresas_fin:
-            sub = fin[(fin["nome"] == nome) & (fin["metric"] == metric)]
-            linha[nome] = float(sub.iloc[0]["valor"]) if not sub.empty else None
-        linhas_fin.append(linha)
-    st.dataframe(pd.DataFrame(linhas_fin).set_index("Indicador (R$ mil)"), width="stretch")
+    FIN_LABELS = {
+        "receita": "Receita liquida",
+        "lucro_liquido": "Lucro liquido",
+        "divida_total": "Divida total",
+    }
+    empresas_fin = sorted(fin["nome"].drop_duplicates().tolist())
+    cols_fin = st.columns(len(empresas_fin))
+    for col, nome in zip(cols_fin, empresas_fin, strict=False):
+        sub = fin[fin["nome"] == nome]
+        ref = sub["data_referencia"].iloc[0] if not sub.empty else None
+        ref_txt = ""
+        if ref is not None and str(ref) != "None":
+            try:
+                ref_txt = date.fromisoformat(str(ref)[:10]).strftime("%d/%m/%Y")
+            except ValueError:
+                ref_txt = str(ref)
+        linhas_html = []
+        for metric, label in FIN_LABELS.items():
+            v = sub[sub["metric"] == metric]["valor"]
+            valor = float(v.iloc[0]) if not v.empty else None
+            cor = "#B4462E" if (valor is not None and valor < 0) else "var(--tinta)"
+            linhas_html.append(
+                f'<div style="display:flex;justify-content:space-between;gap:10px;'
+                f'padding:7px 0;border-bottom:1px solid rgba(20,87,58,.08)">'
+                f'<span class="src" style="text-transform:none">{label}</span>'
+                f'<span class="mono" style="font-weight:600;color:{cor}">'
+                f"{fmt_moeda_mil(valor)}</span></div>"
+            )
+        with col:
+            st.markdown(
+                f'<div class="cv-card"><div style="font-weight:700;margin-bottom:6px">{nome}</div>'
+                f'<div class="src" style="margin-bottom:8px">exercicio {ref_txt}</div>'
+                + "".join(linhas_html)
+                + "</div>",
+                unsafe_allow_html=True,
+            )
 
 st.markdown(
     '<div class="src" style="margin-top:14px;line-height:1.6">Dados operacionais divulgados pelas '

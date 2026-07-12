@@ -161,7 +161,7 @@ class ConabCanaCollector:
     version = "0.1.0"
 
     def collect(self):
-        resp = httpx.get(CONAB_URL, timeout=60, headers={"User-Agent": "canavis/0.1"})
+        resp = httpx.get(CONAB_URL, timeout=60, headers={"User-Agent": "visaosetorialsucro/0.1"})
         resp.raise_for_status()
         texto = resp.content.decode("utf-8", errors="replace")
         por_uf = parse_conab_uf(texto)

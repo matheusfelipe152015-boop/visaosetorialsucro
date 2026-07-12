@@ -36,7 +36,7 @@ def exigir_login() -> None:
         """
         <div style="max-width:420px;margin:8vh auto 0;text-align:center">
           <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:30px;
-               font-weight:700;color:#14573A">CANAVIS</div>
+               font-weight:700;color:#14573A">VISÃO SETORIAL SUCRO</div>
           <div style="color:#5C6B63;margin:6px 0 26px">Inteligência do setor sucroenergético</div>
         </div>
         """,
