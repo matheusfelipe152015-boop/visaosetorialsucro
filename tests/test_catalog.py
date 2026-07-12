@@ -26,7 +26,7 @@ def test_catalogo_semeado(tmp_path, monkeypatch):
     db = _seed_into(tmp_path, monkeypatch)
     inds = db.fetch_df("SELECT code, destaque FROM indicators")
     assert len(inds) >= 18  # catálogo amplo
-    assert int((inds["destaque"] == 1).sum()) == 5  # KPIs do painel
+    assert int((inds["destaque"] == 1).sum()) == 8  # KPIs do painel (inclui safra)
 
     cov = db.fetch_df(
         """SELECT i.code, COUNT(v.id) n FROM indicators i

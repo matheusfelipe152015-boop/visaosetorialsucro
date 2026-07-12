@@ -17,7 +17,7 @@ SOURCES = [
     # code, nome, instituicao, tier, tipo, licenca, automacao, freq, available, status
     ("bcb_sgs", "BCB · SGS", "Banco Central do Brasil", "A", "api", "aberta", 1, "daily", 1, "Atualizado"),
     ("anp", "ANP · dados abertos", "ANP", "A", "csv", "aberta", 1, "weekly", 1, "Atualizado"),
-    ("conab", "CONAB", "CONAB", "A", "csv", "aberta", 1, "eventual", 1, "Planejado"),
+    ("conab", "CONAB", "CONAB", "A", "csv", "aberta", 1, "eventual", 1, "Atualizado"),
     ("comex", "Comex Stat · SECEX", "MDIC/SECEX", "A", "api", "aberta", 1, "monthly", 1, "Atualizado"),
     ("cvm", "CVM · dados abertos", "CVM", "A", "csv", "aberta", 1, "eventual", 1, "Atualizado"),
     ("ccee", "CCEE / ANEEL", "CCEE", "A", "portal", "a validar", 0, "weekly", 1, "Planejado"),
@@ -72,6 +72,13 @@ INDICATORS = [
     # Visão mundial (USDA)
     ("usda_acucar_prod", "Produção mundial de açúcar", "Visão mundial", "Mt", None, "milhões", "usda", "monthly", 0),
     ("usda_acucar_estoque", "Estoques mundiais de açúcar", "Visão mundial", "Mt", None, "milhões", "usda", "monthly", 0),
+    # Safra & producao (CONAB)
+    ("cana_producao", "Producao de cana (Brasil)", "Safra & producao", "mil t", None, "unit", "conab", "quarterly", 1),
+    ("cana_area_plantada", "Area plantada de cana", "Safra & producao", "mil ha", None, "unit", "conab", "quarterly", 0),
+    ("acucar_producao", "Producao de acucar (Brasil)", "Safra & producao", "mil t", None, "unit", "conab", "quarterly", 1),
+    ("etanol_producao", "Producao de etanol (Brasil)", "Safra & producao", "mil L", None, "unit", "conab", "quarterly", 1),
+    ("cana_atr_medio", "ATR medio (Brasil)", "Safra & producao", "kg/t", None, "unit", "conab", "quarterly", 0),
+    ("paridade_etanol", "Paridade etanol/gasolina", "Etanol", "%", None, "unit", "anp", "weekly", 0),
 ]
 
 
