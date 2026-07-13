@@ -34,6 +34,9 @@ SOURCES = [
     ("reuters", "Reuters", "Reuters", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
     ("jornalcana", "JornalCana", "JornalCana", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
     ("epbr", "epbr", "epbr", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
+    ("noticiasagricolas", "Noticias Agricolas", "Noticias Agricolas", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
+    ("udop", "UDOP", "UDOP", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
+    ("google_news", "Google Noticias", "Google", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
 ]
 
 INDICATORS = [

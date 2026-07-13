@@ -225,7 +225,7 @@ def run() -> None:
             )
 
         for i, (titulo, src, days_ago, empresa, temas, regiao, segmento) in enumerate(NEWS):
-            url = f"https://demo/{i}"
+            url = f"demo:{i}"
             c.execute(
                 text(
                     """INSERT INTO news_articles(id,source_code,titulo,resumo,url_canonica,

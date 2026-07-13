@@ -81,7 +81,8 @@ for bloco in linhas_kpi:
 
 # ── filtros interativos ──────────────────────────────────────────────────
 articles = fetch_df(
-    "SELECT id, titulo, data_publicacao, source_code, regiao, segmento FROM news_articles"
+    "SELECT id, titulo, data_publicacao, source_code, regiao, segmento, url_canonica, resumo "
+    "FROM news_articles"
 )
 companies = fetch_df("SELECT code, nome FROM companies")
 watch = set(fetch_df("SELECT company_code FROM watchlists")["company_code"])
@@ -131,15 +132,34 @@ with left:
             f'<span class="tag theme">{t}</span>'
             for t in topics_map.loc[topics_map["article_id"] == n["id"], "nome"]
         )
+        url = n["url_canonica"]
+        eh_link = bool(url) and str(url).startswith("http")
+        if eh_link:
+            titulo_html = (
+                f'<a href="{url}" target="_blank" rel="noopener" '
+                f'style="font-weight:600;color:var(--tinta);text-decoration:none">'
+                f'{n["titulo"]} <span style="color:#8A968F;font-size:12px">\u2197</span></a>'
+            )
+        else:
+            titulo_html = f'<div style="font-weight:600">{n["titulo"]}</div>'
+        veiculo_txt = (
+            n["resumo"]
+            if n["resumo"] and str(n["resumo"]) != "None"
+            else n["source_code"]
+        )
         rows += (
             f'<div style="padding:11px 0;border-bottom:1px solid #EFEBE0">'
-            f'<div style="font-weight:600">{n["titulo"]}</div>'
+            f'{titulo_html}'
             f'<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">{co_chips}{tp_chips}'
-            f'<span class="tag">{n["source_code"]}</span></div></div>'
+            f'<span class="tag">{veiculo_txt}</span></div></div>'
         )
     if not rows:
         rows = '<div class="src" style="padding:14px 0">Nenhuma notícia para os filtros selecionados.</div>'
-    aviso_demo = (
+    tem_real = (
+        not articles.empty
+        and articles["url_canonica"].astype(str).str.startswith("http").any()
+    )
+    aviso_demo = "" if tem_real else (
         '<div class="demobar" style="margin:6px 0 12px">\u2b21 Not\u00edcias de <b>demonstra\u00e7\u00e3o</b> \u2014 '
         "t\u00edtulos ilustrativos, n\u00e3o s\u00e3o reais. A coleta de not\u00edcias ainda n\u00e3o foi ligada.</div>"
     )
