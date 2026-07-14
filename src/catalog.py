@@ -26,6 +26,7 @@ SOURCES = [
     ("eia", "EIA", "U.S. Energy Information Adm.", "A", "api", "aberta", 1, "daily", 1, "Atualizado"),
     ("cepea", "CEPEA/ESALQ", "USP", "D", "scraping", "a validar", 0, "daily", 0, "Fonte indisponível"),
     ("ice", "ICE", "Intercontinental Exchange", "D", "api", "paga", 0, "daily", 1, "Atenção"),
+    ("yahoo", "Yahoo Finance", "Yahoo (republica ICE/NYMEX)", "C", "api", "aberta", 1, "daily", 1, "Atualizado"),
     ("b3", "B3", "B3 S.A.", "A", "api", "a validar", 0, "daily", 1, "Atenção"),
     ("unica", "ÚNICA · UNICADATA", "ÚNICA", "B", "scraping", "a validar", 0, "biweekly", 1, "Desatualizado"),
     # Tier C — notícias (apenas metadados + resumo + link)
@@ -48,10 +49,10 @@ INDICATORS = [
     ("igpm_mensal", "IGP-M (mês)", "Câmbio & macro", "% mês", None, "unit", "bcb_sgs", "monthly", 0),
     ("cdi_diario", "CDI", "Câmbio & macro", "% a.d.", None, "unit", "bcb_sgs", "daily", 0),
     # Petróleo & energia
-    ("brent", "Brent", "Petróleo & energia", "US$/bbl", "USD", "unit", "eia", "daily", 1),
+    ("brent", "Brent", "Petróleo & energia", "US$/bbl", "USD", "unit", "yahoo", "daily", 1),
     ("pld_sudeste", "PLD — Sudeste/CO", "Petróleo & energia", "R$/MWh", "BRL", "unit", "ccee", "weekly", 0),
     # Açúcar
-    ("sugar_ny11", "Açúcar NY nº 11", "Açúcar", "¢/lb", "USD", "unit", "ice", "daily", 1),
+    ("sugar_ny11", "Açúcar NY nº 11", "Açúcar", "¢/lb", "USD", "unit", "yahoo", "daily", 1),
     ("acucar_cristal_sp", "Açúcar cristal (SP)", "Açúcar", "R$/sc 50kg", "BRL", "unit", "cepea", "daily", 0),
     ("acucar_londres5", "Açúcar branco — Londres nº 5", "Açúcar", "US$/t", "USD", "unit", "ice", "daily", 0),
     # Etanol

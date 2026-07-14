@@ -20,6 +20,11 @@ from src.app_auth import exigir_login
 
 from src.domain.enums import Frequency
 from src.formato import fmt_indicador, fmt_valor
+
+# Fontes com coletor de verdade. As demais ainda sao demonstracao e
+# PRECISAM aparecer marcadas: numero plausivel sem fonte e pior que
+# numero nenhum (alguem pode citar em reuniao achando que e real).
+FONTES_REAIS = {"bcb_sgs", "anp", "comex", "conab", "cvm", "yahoo"}
 from src.domain.freshness import freshness_status
 from src.persistence.db import fetch_df, init_schema
 from src.services.news import PERIODO_DIAS, TODAS, filter_articles
@@ -66,6 +71,13 @@ for bloco in linhas_kpi:
         ref = date.fromisoformat(str(r["data_referencia"]))
         status = freshness_status(ref, Frequency(r["frequencia"]))
         txt, un = fmt_indicador(r["valor"], r["unidade"])
+        eh_real = r["source_code"] in FONTES_REAIS
+        selo = (
+            fresh_badge(status, ref=ref.strftime("%d/%m"))
+            if eh_real
+            else '<span class="tag" style="background:#FBF3E0;color:#8A5D0F;'
+                 'border-color:#E0B457">demonstracao</span>'
+        )
         with col:
             st.markdown(
                 f"""<div class="cv-kpi">
@@ -74,7 +86,7 @@ for bloco in linhas_kpi:
                 <div class="un">{un}</div>
               </div>
               <div class="val">{txt}</div>
-              <div>{fresh_badge(status, ref=ref.strftime('%d/%m'))}</div>
+              <div>{selo}</div>
             </div>""",
                 unsafe_allow_html=True,
             )
