@@ -20,7 +20,9 @@ name: Coleta diária
 
 on:
   schedule:
-    - cron: "17 9 * * *"   # ~06:17 América/Sao_Paulo
+    - cron: "17 9 * * *"    # ~06:17 America/Sao_Paulo (antes do dia comecar)
+    - cron: "17 16 * * *"   # ~13:17 America/Sao_Paulo (meio do pregao)
+    - cron: "17 20 * * *"   # ~17:17 America/Sao_Paulo (fim do pregao, pega CBIO)
   workflow_dispatch: {}     # botão "rodar agora" na aba Actions (para testar)
 
 # Se uma execução demorar e outra começar, cancela a anterior (evita pilha).
