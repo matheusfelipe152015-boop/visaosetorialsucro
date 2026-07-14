@@ -22,6 +22,7 @@ from src.collectors.market.bcb_macro import BcbMacroCollector
 from src.collectors.market.bcb_ptax import BcbPtaxCollector
 from src.collectors.market.comex_export import ComexExportCollector
 from src.collectors.market.cotacoes_intl import CotacoesIntlCollector
+from src.collectors.market.cbio_b3 import CbioB3Collector
 from src.collectors.market.conab_cana import ConabCanaCollector
 from src.collectors.market.cvm_financeiro import CvmFinanceiroCollector
 from src.collectors.news.rss_setor import RssNoticiasCollector
@@ -41,6 +42,7 @@ def coletores() -> list[Collector]:
         AnpPrecosCollector(),          # preços de combustíveis (mês corrente)
         ComexExportCollector(),
         CotacoesIntlCollector(),
+        CbioB3Collector(),
         ConabCanaCollector(),
         CvmFinanceiroCollector(),
         RssNoticiasCollector(),        # exportações de açúcar e etanol (24 meses)

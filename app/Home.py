@@ -24,7 +24,7 @@ from src.formato import fmt_indicador, fmt_valor
 # Fontes com coletor de verdade. As demais ainda sao demonstracao e
 # PRECISAM aparecer marcadas: numero plausivel sem fonte e pior que
 # numero nenhum (alguem pode citar em reuniao achando que e real).
-FONTES_REAIS = {"bcb_sgs", "anp", "comex", "conab", "cvm", "yahoo"}
+FONTES_REAIS = {"bcb_sgs", "anp", "comex", "conab", "cvm", "yahoo", "b3"}
 from src.domain.freshness import freshness_status
 from src.persistence.db import fetch_df, init_schema
 from src.services.news import PERIODO_DIAS, TODAS, filter_articles
