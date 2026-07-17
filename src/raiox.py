@@ -139,6 +139,39 @@ def _bucket(n) -> str:
     return "Não classificado"
 
 
+def ler_carteira_excel(arquivo) -> pd.DataFrame:
+    """Lê a planilha detectando automaticamente a linha do cabeçalho.
+
+    A planilha pode ter o cabeçalho na primeira linha (mais comum) ou na linha 8
+    (padrão antigo do Raio X). Testamos as posições e usamos a que reconhecer as
+    colunas conhecidas (grupo, risco, rating...).
+    """
+    xls = pd.ExcelFile(arquivo, engine="openpyxl")
+    sheet = xls.sheet_names[0]
+    # colunas-chave que indicam que achamos o cabeçalho certo
+    sinais = []
+    for opts in COLUMN_OPTIONS.values():
+        sinais.extend(str(o).strip().lower() for o in opts)
+
+    melhor = None
+    melhor_pontos = -1
+    for header in (0, 7, 1, 2):
+        try:
+            df = pd.read_excel(arquivo, sheet_name=sheet, engine="openpyxl", header=header)
+        except Exception:  # noqa: BLE001
+            continue
+        cols = {str(c).strip().lower() for c in df.columns}
+        pontos = len(cols & set(sinais))
+        if pontos > melhor_pontos and df.shape[1] >= 3:
+            melhor_pontos = pontos
+            melhor = df
+    if melhor is None or melhor_pontos == 0:
+        # nenhuma posição reconheceu colunas: devolve a leitura padrão para o
+        # erro aparecer de forma clara em normalize_base
+        return pd.read_excel(arquivo, sheet_name=sheet, engine="openpyxl")
+    return melhor
+
+
 def normalize_base(df: pd.DataFrame) -> pd.DataFrame:
     """Padroniza uma planilha de carteira para as colunas internas do Raio X."""
     out = df.copy()

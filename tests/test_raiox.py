@@ -115,3 +115,44 @@ def test_planilha_vazia_nao_quebra():
     df = pd.DataFrame({"Nome do grupo": []})
     out = normalize_base(df)
     assert len(out) == 0
+
+
+def test_le_planilha_colunas_reais(tmp_path):
+    """Planilha com os nomes de coluna reais da carteira (idGrupo, valorRisco...)."""
+    from src.raiox import ler_carteira_excel, normalize_base
+    df = pd.DataFrame({
+        "idGrupo": [101, 102],
+        "nomeGrupo": ["Usina Alfa", "Grupo Beta"],
+        "valorLimite": [70000, 40000],
+        "valorRisco": [50000, 30000],
+        "analista": ["Ana", "Bruno"],
+        "rating": ["Ba1", "B2"],
+        "setorGerencialPodicre": ["Sucro", "Grãos"],
+    })
+    caminho = tmp_path / "carteira.xlsx"
+    df.to_excel(caminho, index=False)
+    raw = ler_carteira_excel(caminho)
+    base = normalize_base(raw)
+    assert len(base) == 2
+    assert base["risco"].sum() == 80000
+    assert set(base["analista"]) == {"Ana", "Bruno"}
+
+
+def test_le_planilha_cabecalho_linha_8(tmp_path):
+    """Planilha no padrão antigo (cabeçalho na linha 8) ainda funciona."""
+    # 7 linhas de lixo antes do cabeçalho
+    import openpyxl
+
+    from src.raiox import ler_carteira_excel, normalize_base
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    for _ in range(7):
+        ws.append(["lixo"])
+    ws.append(["idGrupo", "nomeGrupo", "valorRisco", "valorLimite"])
+    ws.append([1, "Alfa", 100, 200])
+    caminho = tmp_path / "antiga.xlsx"
+    wb.save(caminho)
+    raw = ler_carteira_excel(caminho)
+    base = normalize_base(raw)
+    assert len(base) == 1
+    assert base["risco"].sum() == 100

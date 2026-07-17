@@ -20,7 +20,6 @@ if _r not in _sys.path:
     _sys.path.insert(0, _r)
 
 
-import pandas as pd
 import plotly.express as px
 import streamlit as st
 
@@ -37,6 +36,7 @@ from src.raiox import (
     BUCKET_ORDER,
     aplicar_comentarios,
     calcular_pd_e_rating_medio,
+    ler_carteira_excel,
     normalize_base,
     salvar_comentario,
 )
@@ -83,11 +83,7 @@ if arquivo is None:
 
 # lê e normaliza (na memória)
 try:
-    xls = pd.ExcelFile(arquivo, engine="openpyxl")
-    # tenta com cabeçalho na linha 8 (padrão do Raio X); se falhar, cabeçalho normal
-    raw = pd.read_excel(arquivo, sheet_name=xls.sheet_names[0], engine="openpyxl", header=7)
-    if raw.shape[1] < 3:
-        raw = pd.read_excel(arquivo, sheet_name=xls.sheet_names[0], engine="openpyxl")
+    raw = ler_carteira_excel(arquivo)   # detecta a linha do cabeçalho sozinho
     base = normalize_base(raw)
     base = aplicar_depara(base)      # aplica o de-para salvo (analista/setor/ativo)
     base = aplicar_comentarios(base)
