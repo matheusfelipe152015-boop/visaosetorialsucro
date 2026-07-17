@@ -76,14 +76,28 @@ with st.sidebar:
     st.markdown("### Carregar carteira")
     arquivo = st.file_uploader("Planilha da carteira (.xlsx)", type=["xlsx"])
     st.caption("O arquivo é processado na memória e descartado ao sair.")
+    st.markdown("---")
+    # TEMPORÁRIO (testes de fim de semana): carteira fictícia.
+    # Remover este bloco quando os testes terminarem.
+    usar_exemplo = st.button("🧪 Carregar carteira de exemplo")
+    st.caption("Dados fictícios, só para testar. Remover depois.")
 
-if arquivo is None:
-    st.info("⬅️ Carregue a planilha da carteira na barra lateral para começar.")
-    st.stop()
+if usar_exemplo:
+    st.session_state["_raiox_exemplo"] = True
+if arquivo is not None:
+    st.session_state["_raiox_exemplo"] = False
 
 # lê e normaliza (na memória)
 try:
-    raw = ler_carteira_excel(arquivo)   # detecta a linha do cabeçalho sozinho
+    if st.session_state.get("_raiox_exemplo"):
+        from src.raiox_exemplo import carteira_exemplo
+        raw = carteira_exemplo()
+    elif arquivo is not None:
+        raw = ler_carteira_excel(arquivo)   # detecta a linha do cabeçalho sozinho
+    else:
+        st.info("⬅️ Carregue a planilha da carteira, ou use a **carteira de exemplo** "
+                "na barra lateral para testar.")
+        st.stop()
     base = normalize_base(raw)
     base = aplicar_depara(base)      # aplica o de-para salvo (analista/setor/ativo)
     base = aplicar_comentarios(base)
@@ -91,6 +105,8 @@ except Exception as exc:  # noqa: BLE001
     st.error(f"Não consegui ler a planilha: {exc}")
     st.stop()
 
+if st.session_state.get("_raiox_exemplo"):
+    st.warning("🧪 Usando **carteira de exemplo** (dados fictícios, só para teste).")
 st.success(f"Carteira carregada: **{len(base)}** clientes.")
 
 # ── abas ─────────────────────────────────────────────────────────────────
