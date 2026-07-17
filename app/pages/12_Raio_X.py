@@ -72,40 +72,77 @@ st.caption("A carteira enviada vive só nesta sessão e não é salva. "
            "Apenas os comentários (por cliente) ficam guardados.")
 
 # ── upload da carteira (na sessão) ───────────────────────────────────────
+from src.raiox import (
+    carregar_base_teste,
+    excluir_base_teste,
+    existe_base_teste,
+    salvar_base_teste,
+)
+
+tem_base_salva = existe_base_teste()
+
 with st.sidebar:
     st.markdown("### Carregar carteira")
     arquivo = st.file_uploader("Planilha da carteira (.xlsx)", type=["xlsx"])
     st.caption("O arquivo é processado na memória e descartado ao sair.")
+
+    if tem_base_salva:
+        st.markdown("---")
+        if st.button("📂 Usar base de teste salva"):
+            st.session_state["_raiox_fonte"] = "salva"
+            st.rerun()
+
     st.markdown("---")
-    # TEMPORÁRIO (testes de fim de semana): carteira fictícia.
-    # Remover este bloco quando os testes terminarem.
+    # TEMPORÁRIO (testes): carteira fictícia embutida.
     usar_exemplo = st.button("🧪 Carregar carteira de exemplo")
     st.caption("Dados fictícios, só para testar. Remover depois.")
 
 if usar_exemplo:
-    st.session_state["_raiox_exemplo"] = True
+    st.session_state["_raiox_fonte"] = "exemplo"
 if arquivo is not None:
-    st.session_state["_raiox_exemplo"] = False
+    st.session_state["_raiox_fonte"] = "upload"
+
+fonte = st.session_state.get("_raiox_fonte")
 
 # lê e normaliza (na memória)
 try:
-    if st.session_state.get("_raiox_exemplo"):
+    if fonte == "exemplo":
         from src.raiox_exemplo import carteira_exemplo
-        raw = carteira_exemplo()
+        base = normalize_base(carteira_exemplo())
+    elif fonte == "salva" and tem_base_salva:
+        base = carregar_base_teste()   # já vem normalizada
     elif arquivo is not None:
-        raw = ler_carteira_excel(arquivo)   # detecta a linha do cabeçalho sozinho
+        base = normalize_base(ler_carteira_excel(arquivo))
     else:
         st.info("⬅️ Carregue a planilha da carteira, ou use a **carteira de exemplo** "
                 "na barra lateral para testar.")
         st.stop()
-    base = normalize_base(raw)
-    base = aplicar_depara(base)      # aplica o de-para salvo (analista/setor/ativo)
+    base = aplicar_depara(base)          # aplica o de-para salvo (analista/setor/ativo)
     base = aplicar_comentarios(base)
 except Exception as exc:  # noqa: BLE001
     st.error(f"Não consegui ler a planilha: {exc}")
     st.stop()
 
-if st.session_state.get("_raiox_exemplo"):
+# ── salvar / excluir base de teste (com aviso de segurança) ──────────────
+with st.sidebar:
+    st.markdown("---")
+    st.markdown("### Base de teste")
+    if st.button("💾 Salvar base atual como teste"):
+        salvar_base_teste(base, u["email"])
+        st.success("Base de teste salva.")
+        st.rerun()
+    if tem_base_salva and st.button("🗑️ Excluir base de teste"):
+        excluir_base_teste()
+        st.session_state.pop("_raiox_fonte", None)
+        st.success("Base de teste excluída.")
+        st.rerun()
+
+# aviso permanente de segurança quando há base salva na nuvem
+if tem_base_salva or fonte == "salva":
+    st.error("⚠️ **Base de teste salva na nuvem.** Use **apenas dados fictícios** "
+             "aqui. Nunca salve carteira real. Exclua a base de teste ao terminar.")
+
+if fonte == "exemplo":
     st.warning("🧪 Usando **carteira de exemplo** (dados fictícios, só para teste).")
 st.success(f"Carteira carregada: **{len(base)}** clientes.")
 

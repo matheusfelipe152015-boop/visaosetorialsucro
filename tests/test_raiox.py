@@ -156,3 +156,26 @@ def test_le_planilha_cabecalho_linha_8(tmp_path):
     base = normalize_base(raw)
     assert len(base) == 1
     assert base["risco"].sum() == 100
+
+
+def test_base_teste_salva_carrega_exclui():
+    from src.raiox import (
+        carregar_base_teste,
+        excluir_base_teste,
+        existe_base_teste,
+        normalize_base,
+        salvar_base_teste,
+    )
+    df = pd.DataFrame({
+        "ID": [1, 2], "Nome do grupo": ["A", "B"],
+        "Risco Mês Atual Podicre": [100, 200],
+        "Limite mês Atual Podicre": [150, 250],
+    })
+    base = normalize_base(df)
+    assert not existe_base_teste()
+    salvar_base_teste(base, "tester")
+    assert existe_base_teste()
+    recuperada = carregar_base_teste()
+    assert len(recuperada) == 2
+    excluir_base_teste()
+    assert not existe_base_teste()

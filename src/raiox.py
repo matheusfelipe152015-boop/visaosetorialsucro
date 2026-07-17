@@ -13,6 +13,7 @@ Este módulo tem:
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
 import pandas as pd
@@ -327,3 +328,39 @@ def salvar_comentario(id_cliente: str, status: str, comentario: str,
                         VALUES(:i, :s, :c, :a, :q)"""),
                 {"i": id_cliente, "s": status, "c": comentario, "a": agora, "q": quem},
             )
+
+
+# ── base de TESTE (só dados fictícios) ────────────────────────────────────
+# Guarda uma carteira inteira no banco — o que normalmente é proibido. Existe
+# só para testes com dados fictícios; a tela sempre avisa disso.
+
+def salvar_base_teste(df: pd.DataFrame, quem: str = "") -> None:
+    """Salva a carteira (fictícia) como base de teste. Substitui a anterior."""
+    dados = df.to_json(orient="records", date_format="iso")
+    with get_engine().begin() as conn:
+        conn.execute(text("DELETE FROM raiox_base_teste"))  # só uma base por vez
+        conn.execute(
+            text("""INSERT INTO raiox_base_teste(id, dados_json, linhas, salvo_em, salvo_por)
+                    VALUES(:id, :d, :n, :s, :q)"""),
+            {"id": uuid.uuid4().hex, "d": dados, "n": len(df),
+             "s": datetime.utcnow(), "q": quem},
+        )
+
+
+def carregar_base_teste() -> pd.DataFrame | None:
+    """Carrega a base de teste salva (ou None se não houver)."""
+    df = _fetch_df_raw("SELECT dados_json FROM raiox_base_teste LIMIT 1")
+    if df.empty:
+        return None
+    import io
+    return pd.read_json(io.StringIO(df.iloc[0]["dados_json"]), orient="records")
+
+
+def existe_base_teste() -> bool:
+    df = _fetch_df_raw("SELECT id FROM raiox_base_teste LIMIT 1")
+    return not df.empty
+
+
+def excluir_base_teste() -> None:
+    with get_engine().begin() as conn:
+        conn.execute(text("DELETE FROM raiox_base_teste"))
