@@ -1,4 +1,8 @@
--- 0007_metricas_uf.sql — metricas por estado (generica).
+-- 0007_metricas_uf.sql — métricas por estado (genérica).
+-- Serve para qualquer dado por UF que não seja safra: preços da ANP,
+-- paridade etanol/gasolina, e futuras séries por estado.
+-- 'periodo' é texto livre (ex.: '2026-06' para mês). Portátil SQLite/PostgreSQL.
+
 CREATE TABLE IF NOT EXISTS metricas_uf (
     id               TEXT PRIMARY KEY,
     uf               TEXT NOT NULL,

@@ -27,7 +27,6 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.app_auth import exigir_login
-
 from src.persistence.db import fetch_df, init_schema
 from src.services.chuva import REGIOES, anomalia, classifica_anomalia
 from src.theme import apply_theme, plotly_template

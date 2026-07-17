@@ -1,7 +1,8 @@
-"""Pagina — Administracao: aprovar cadastros e gerir niveis de acesso.
+"""Página — Administração: aprovar cadastros e gerir níveis de acesso.
 
-So aparece para ADM e gerencia. Analista ou nao-logado ve apenas um aviso.
-As acoes respeitam as regras: gerencia nao cria ADM; ninguem mexe em si mesmo.
+Só aparece para ADM e gerência. Se um analista (ou não-logado) abrir, a página
+mostra apenas um aviso e não revela nada. As ações respeitam as regras:
+gerência não cria ADM; ninguém mexe no próprio nível/acesso.
 """
 
 from __future__ import annotations
@@ -31,31 +32,34 @@ from src.contas import (
 from src.persistence.db import init_schema
 from src.theme import apply_theme
 
-st.set_page_config(page_title="VISAO SETORIAL SUCRO . Administracao", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Administração", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()
 
-_NIVEL_TXT = {"adm": "Administrador", "gerencia": "Gerencia", "analista": "Analista"}
+_NIVEL_TXT = {"adm": "Administrador", "gerencia": "Gerência", "analista": "Analista"}
 
 u = usuario_logado()
 
+# ── porteiro: só adm e gerência entram ───────────────────────────────────
 if not u or not pode_administrar(u["papel"]):
-    st.markdown('<div class="eyebrow">Administracao</div>', unsafe_allow_html=True)
-    st.title("Administracao")
-    st.info("Esta area e restrita a administradores e gerencia. "
+    st.markdown('<div class="eyebrow">Administração</div>', unsafe_allow_html=True)
+    st.title("Administração")
+    st.info("Esta área é restrita a administradores e gerência. "
             "Entre com uma conta autorizada em **Minha conta**.")
     st.stop()
 
-st.markdown('<div class="eyebrow">Administracao — usuarios e acessos</div>', unsafe_allow_html=True)
-st.title("Administracao")
+st.markdown('<div class="eyebrow">Administração — usuários e acessos</div>', unsafe_allow_html=True)
+st.title("Administração")
 
 concede = papeis_que_pode_conceder(u["papel"])
 usuarios = listar_usuarios()
+
 pendentes = usuarios[usuarios["situacao"] == "pendente"]
 ativos = usuarios[usuarios["situacao"] == "ativo"]
 
-st.markdown(f"##### Aguardando aprovacao . {len(pendentes)}")
+# ── pendentes de aprovação ───────────────────────────────────────────────
+st.markdown(f"##### Aguardando aprovação · {len(pendentes)}")
 if pendentes.empty:
     st.caption("Nenhum cadastro pendente.")
 else:
@@ -63,13 +67,13 @@ else:
         with st.container():
             st.markdown(
                 f'<div class="cv-card"><b>{r["nome"] or "(sem nome)"}</b> '
-                f'<span class="src">. {r["email"]}</span></div>',
+                f'<span class="src">· {r["email"]}</span></div>',
                 unsafe_allow_html=True,
             )
-            c1, c2, _x = st.columns([2, 1, 3])
+            c1, c2, _ = st.columns([2, 1, 3])
             with c1:
                 papel_sel = st.selectbox(
-                    "Conceder nivel", concede, key=f"papel_{r['id']}",
+                    "Conceder nível", concede, key=f"papel_{r['id']}",
                     format_func=lambda p: _NIVEL_TXT.get(p, p),
                 )
             with c2:
@@ -83,27 +87,28 @@ else:
 
 st.markdown("---")
 
-st.markdown(f"##### Usuarios ativos . {len(ativos)}")
+# ── usuários ativos ──────────────────────────────────────────────────────
+st.markdown(f"##### Usuários ativos · {len(ativos)}")
 if ativos.empty:
-    st.caption("Nenhum usuario ativo ainda.")
+    st.caption("Nenhum usuário ativo ainda.")
 else:
     for _, r in ativos.iterrows():
         sou_eu = r["id"] == u["id"]
         with st.container():
             st.markdown(
                 f'<div class="cv-card"><b>{r["nome"] or "(sem nome)"}</b> '
-                f'<span class="src">. {r["email"]} . '
+                f'<span class="src">· {r["email"]} · '
                 f'{_NIVEL_TXT.get(r["papel"], r["papel"])}'
-                f'{" . (voce)" if sou_eu else ""}</span></div>',
+                f'{" · (você)" if sou_eu else ""}</span></div>',
                 unsafe_allow_html=True,
             )
             if sou_eu:
-                continue
+                continue  # não mexe em si mesmo
             c1, c2, c3 = st.columns([2, 1, 3])
             with c1:
                 if concede:
                     novo = st.selectbox(
-                        "Alterar nivel", concede, key=f"novo_{r['id']}",
+                        "Alterar nível", concede, key=f"novo_{r['id']}",
                         index=concede.index(r["papel"]) if r["papel"] in concede else 0,
                         format_func=lambda p: _NIVEL_TXT.get(p, p),
                     )

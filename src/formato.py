@@ -1,26 +1,31 @@
-"""Formatacao de numeros para exibicao (padrao brasileiro, sem notacao cientifica)."""
+"""Formatação de números para exibição (padrão brasileiro, sem notação científica).
+
+Resolve o problema de `f"{709100:.4g}"` virar "7.091e+05" (ilegível) e de
+unidades já escaladas ("mil t") ganharem escala em cima ("44 mil mil t").
+"""
 
 from __future__ import annotations
 
 
-def _br(valor, casas):
+def _br(valor: float, casas: int) -> str:
+    """Ponto de milhar e vírgula decimal (padrão BR), sem zeros pendurados."""
     s = f"{valor:,.{casas}f}"
-    s = s.replace(",", "\u00b7").replace(".", ",").replace("\u00b7", ".")
-    if "," in s:
+    s = s.replace(",", "·").replace(".", ",").replace("·", ".")
+    if "," in s:  # tira zeros à direita: '71,20' -> '71,2' | '5,00' -> '5'
         s = s.rstrip("0").rstrip(",")
     return s
 
 
-def fmt_valor(valor):
-    """Numero legivel, com escala automatica para valores grandes."""
+def fmt_valor(valor: float | int | None) -> str:
+    """Número legível, com escala automática para valores grandes."""
     if valor is None:
-        return "\u2014"
+        return "—"
     try:
         v = float(valor)
     except (TypeError, ValueError):
-        return "\u2014"
-    if v != v:
-        return "\u2014"
+        return "—"
+    if v != v:  # NaN
+        return "—"
 
     negativo = v < 0
     a = abs(v)
@@ -37,11 +42,17 @@ def fmt_valor(valor):
         txt = _br(a, 2)
     else:
         txt = _br(a, 3)
-    return f"\u2212{txt}" if negativo else txt
+    return f"−{txt}" if negativo else txt
 
 
-def fmt_indicador(valor, unidade):
-    """Evita escala duplicada: 709100 'mil t' -> ('709,1 mi', 't')."""
+def fmt_indicador(valor, unidade: str | None) -> tuple[str, str]:
+    """Formata valor + unidade juntos, evitando escala duplicada.
+
+    Unidades já escaladas ('mil t', 'mil L', 'mil ha') são convertidas para a
+    unidade base, e a escala vai para o número:
+        709100 'mil t'  -> ('709,1 mi', 't')
+        29260000 'mil L'-> ('29,3 bi', 'L')
+    """
     u = (unidade or "").strip()
     if u.lower().startswith("mil ") and valor is not None:
         try:
@@ -51,16 +62,16 @@ def fmt_indicador(valor, unidade):
     return fmt_valor(valor), u
 
 
-def fmt_moeda_mil(valor):
-    """Valor em R$ mil (CVM) -> reais legiveis. 7431765 -> 'R$ 7,4 bi'."""
+def fmt_moeda_mil(valor) -> str:
+    """Valor em R$ mil (como vem da CVM) -> reais legíveis. 7431765 -> 'R$ 7,4 bi'."""
     if valor is None:
-        return "\u2014"
+        return "—"
     try:
         reais = float(valor) * 1_000
     except (TypeError, ValueError):
-        return "\u2014"
+        return "—"
     if reais != reais:
-        return "\u2014"
+        return "—"
     negativo = reais < 0
     a = abs(reais)
     if a >= 1_000_000_000:
@@ -71,4 +82,4 @@ def fmt_moeda_mil(valor):
         txt = f"R$ {_br(a / 1_000, 1)} mil"
     else:
         txt = f"R$ {_br(a, 2)}"
-    return f"\u2212{txt}" if negativo else txt
+    return f"−{txt}" if negativo else txt

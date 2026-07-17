@@ -12,14 +12,11 @@ if _r not in _sys.path:
     _sys.path.insert(0, _r)
 
 
-import pandas as pd
-
 from datetime import date
 
 import streamlit as st
 
 from src.app_auth import exigir_login
-
 from src.domain.enums import Frequency
 from src.domain.freshness import freshness_status
 from src.persistence.db import fetch_df, init_schema
@@ -27,9 +24,9 @@ from src.theme import apply_theme, fresh_badge
 
 
 def _num(v) -> int:
-    """Converte para int com segurança (None e NaN viram 0)."""
+    """Converte valor para int de forma segura (trata None e NaN como 0)."""
     try:
-        if v is None or v != v:
+        if v is None or v != v:  # v != v é True quando v é NaN
             return 0
         return int(v)
     except (TypeError, ValueError):
@@ -70,7 +67,7 @@ for _, s in runs.iterrows():
     st.markdown(
         f"""<div class="cv-card" style="display:flex;justify-content:space-between;align-items:center">
           <div><b>{s['nome']}</b> <span class="src">Tier {s['tier'] or '—'} · {freq.value}</span><br>
-            <span class="src">última execução {last_run} · {int(pd.notna(s['rows_seen']) and s['rows_seen'] or 0)} lidos / {int(pd.notna(s['rows_new']) and s['rows_new'] or 0)} novos{err}</span></div>
+            <span class="src">última execução {last_run} · {_num(s['rows_seen'])} lidos / {_num(s['rows_new'])} novos{err}</span></div>
           <div>{fresh_badge(status, ref=ref_date.strftime('%d/%m') if ref_date else None)}</div>
         </div>""",
         unsafe_allow_html=True,

@@ -13,6 +13,7 @@ MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "db" / "migrations"
 
 _BENIGN = ("already exists", "duplicate column")
 
+# Otimização: o schema só precisa ser conferido uma vez por processo.
 _schema_ready = False
 
 
@@ -57,6 +58,7 @@ def _fetch_df_raw(query: str, params: dict | None = None):
         return pd.read_sql_query(text(query), conn, params=params or {})
 
 
+# Sob o Streamlit, cacheia consultas por 5 min. Fora dele (robô/testes), sem cache.
 try:
     import streamlit as st
 

@@ -1,4 +1,13 @@
-"""Pagina 4 — Precos por estado: mapa de combustiveis e paridade etanol/gasolina."""
+"""Página 4 — Preços por estado: mapa de combustíveis e paridade etanol/gasolina.
+
+O destaque é a PARIDADE: etanol ÷ gasolina, em %. Abaixo de ~70%, compensa
+abastecer com etanol (rende menos por litro, mas sai mais barato no bolso).
+Acima disso, o consumidor migra para gasolina — e a demanda de etanol cai.
+Para crédito: usina em estado onde o etanol não compete tende a ter demanda
+mais fraca no mercado interno.
+
+Fonte: ANP — Série Histórica de Preços de Combustíveis (dados abertos).
+"""
 
 from __future__ import annotations
 
@@ -21,41 +30,43 @@ from src.app_auth import exigir_login
 from src.persistence.db import fetch_df, init_schema
 from src.theme import apply_theme
 
-st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Precos por estado", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Preços por estado", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()
 
 GEOJSON = Path(_r) / "assets" / "geo" / "br_estados.geojson"
-LIMITE_PARIDADE = 70.0
+LIMITE_PARIDADE = 70.0  # abaixo disso, o etanol compensa
 
 
 @st.cache_data
-def carrega_geo():
+def carrega_geo() -> dict:
     return json.loads(GEOJSON.read_text(encoding="utf-8"))
 
 
-st.markdown('<div class="eyebrow">04 · Precos — combustiveis por estado</div>', unsafe_allow_html=True)
-st.title("Mapa de precos e paridade")
+st.markdown('<div class="eyebrow">04 · Preços — combustíveis por estado</div>', unsafe_allow_html=True)
+st.title("Mapa de preços e paridade")
 
 dados_todos = fetch_df(
     "SELECT uf, regiao, periodo, metric, valor, unidade FROM metricas_uf WHERE source_code = 'anp'"
 )
 
 if dados_todos.empty:
-    st.info("Sem precos por estado ainda. Rode `python3.12 jobs/run_daily.py` para coletar da ANP.")
+    st.info("Sem preços por estado ainda. Rode `python3.12 jobs/run_daily.py` para coletar da ANP.")
     st.stop()
 
 METRICAS = {
     "paridade_etanol": "Paridade etanol/gasolina",
-    "preco_etanol": "Preco do etanol",
-    "preco_gasolina": "Preco da gasolina",
+    "preco_etanol": "Preço do etanol",
+    "preco_gasolina": "Preço da gasolina",
 }
 
 c1, c2 = st.columns([1, 1])
 periodos = sorted(dados_todos["periodo"].unique(), reverse=True)
-periodo = c1.selectbox("Periodo", periodos, index=0)
-disponiveis = [METRICAS[m] for m in METRICAS if m in set(dados_todos["metric"])]
+periodo = c1.selectbox("Período", periodos, index=0)
+disponiveis = [
+    METRICAS[m] for m in METRICAS if m in set(dados_todos["metric"])
+]
 metrica_nome = c2.selectbox("Indicador", disponiveis, index=0)
 metrica = next(k for k, v in METRICAS.items() if v == metrica_nome)
 
@@ -63,13 +74,14 @@ dados = dados_todos[
     (dados_todos["periodo"] == periodo) & (dados_todos["metric"] == metrica)
 ].copy()
 if dados.empty:
-    st.warning("Sem dados para essa combinacao.")
+    st.warning("Sem dados para essa combinação.")
     st.stop()
 
 geo = carrega_geo()
 eh_paridade = metrica == "paridade_etanol"
 unidade = "%" if eh_paridade else "R$/L"
 
+# ── leitura de topo ──────────────────────────────────────────────────────
 if eh_paridade:
     compensa = dados[dados["valor"] < LIMITE_PARIDADE]
     media = dados["valor"].mean()
@@ -82,9 +94,9 @@ if eh_paridade:
         unsafe_allow_html=True,
     )
     k2.markdown(
-        f'<div class="cv-kpi"><div class="nm">Paridade media do pais</div>'
+        f'<div class="cv-kpi"><div class="nm">Paridade média do país</div>'
         f'<div class="val">{media:,.1f}<span style="font-size:13px"> %</span></div>'
-        f'<div style="margin-top:6px"><span class="src">etanol / gasolina</span></div></div>',
+        f'<div style="margin-top:6px"><span class="src">etanol ÷ gasolina</span></div></div>',
         unsafe_allow_html=True,
     )
     k3.markdown(
@@ -96,7 +108,7 @@ if eh_paridade:
     st.markdown(
         f'<div class="src" style="margin:10px 0 4px">Regra de bolso do setor: abaixo de '
         f"<b>{LIMITE_PARIDADE:.0f}%</b> o etanol compensa no bolso do consumidor; acima disso, "
-        "a gasolina tende a levar a preferencia — e a demanda de etanol enfraquece.</div>",
+        "a gasolina tende a levar a preferência — e a demanda de etanol enfraquece.</div>",
         unsafe_allow_html=True,
     )
 else:
@@ -105,7 +117,7 @@ else:
     barato = dados.loc[dados["valor"].idxmin()]
     k1, k2, k3 = st.columns(3)
     k1.markdown(
-        f'<div class="cv-kpi"><div class="nm">Media do pais</div>'
+        f'<div class="cv-kpi"><div class="nm">Média do país</div>'
         f'<div class="val">{media:,.2f}<span style="font-size:13px"> R$/L</span></div>'
         f'<div style="margin-top:6px"><span class="src">{periodo}</span></div></div>',
         unsafe_allow_html=True,
@@ -123,7 +135,9 @@ else:
         unsafe_allow_html=True,
     )
 
+# ── mapa ─────────────────────────────────────────────────────────────────
 if eh_paridade:
+    # verde = etanol compensa (baixo) | vermelho = não compensa (alto)
     escala = [[0, "#14573A"], [0.5, "#E0B457"], [1, "#B4462E"]]
     zmin, zmax = 55, 95
     titulo = "Paridade (%)"
@@ -158,20 +172,22 @@ fig.update_layout(
 )
 st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
+# ── ranking ──────────────────────────────────────────────────────────────
 st.markdown("##### Todos os estados")
-asc = eh_paridade
+asc = eh_paridade  # paridade: menor é melhor (etanol compete)
 rank = dados.sort_values("valor", ascending=asc)[["uf", "regiao", "valor"]].copy()
 rank["valor"] = rank["valor"].round(1 if eh_paridade else 2)
 if eh_paridade:
-    rank["situacao"] = rank["valor"].map(
+    rank["situação"] = rank["valor"].map(
         lambda v: "✓ etanol compensa" if v < LIMITE_PARIDADE else "gasolina leva"
     )
-rank = rank.rename(columns={"uf": "UF", "regiao": "Regiao", "valor": f"{metrica_nome} ({unidade})"})
+rank = rank.rename(columns={"uf": "UF", "regiao": "Região", "valor": f"{metrica_nome} ({unidade})"})
 st.dataframe(rank.set_index("UF"), width="stretch")
 
 st.markdown(
-    '<div class="src" style="margin-top:14px;line-height:1.6">Fonte: ANP — Serie Historica de '
-    "Precos de Combustiveis (postos de revenda). A paridade e calculada pela plataforma: preco "
-    "medio do etanol dividido pelo preco medio da gasolina comum, por estado.</div>",
+    '<div class="src" style="margin-top:14px;line-height:1.6">Fonte: ANP — Série Histórica de '
+    "Preços de Combustíveis (levantamento em postos de revenda). A paridade é calculada pela "
+    "plataforma: preço médio do etanol dividido pelo preço médio da gasolina comum, por estado. "
+    "Médias do período; variações locais existem.</div>",
     unsafe_allow_html=True,
 )

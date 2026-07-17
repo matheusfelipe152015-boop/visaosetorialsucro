@@ -28,7 +28,6 @@ import pandas as pd
 import streamlit as st
 
 from src.app_auth import exigir_login
-
 from src.formato import fmt_moeda_mil
 from src.persistence.db import fetch_df, init_schema
 from src.services.setor import soma_metric, tendencia, variacao_pct
@@ -169,6 +168,7 @@ for metric, label in LABELS.items():
 df_comp = pd.DataFrame(tabela).set_index("Indicador")
 st.dataframe(df_comp, width="stretch")
 
+# ── seção financeira (CVM) ───────────────────────────────────────────────
 fin = fetch_df(
     """SELECT c.nome, m.metric, m.valor, m.status_validacao, m.data_referencia
        FROM company_metrics m JOIN companies c ON c.code=m.company_code
@@ -178,14 +178,15 @@ if not fin.empty:
     st.markdown("### Financeiro")
     if (fin["status_validacao"] == "a_conferir").any():
         st.markdown(
-            '<div class="demobar">\u2b21 Extraido automaticamente das demonstracoes da CVM \u2014 '
-            "confira na fonte oficial antes de usar em decisao.</div>",
+            '<div class="demobar">⬡ Extraído automaticamente das demonstrações da CVM — '
+            "confira na fonte oficial antes de usar em decisão.</div>",
             unsafe_allow_html=True,
         )
+
     FIN_LABELS = {
-        "receita": "Receita liquida",
-        "lucro_liquido": "Lucro liquido",
-        "divida_total": "Divida total",
+        "receita": "Receita líquida",
+        "lucro_liquido": "Lucro líquido",
+        "divida_total": "Dívida total",
     }
     empresas_fin = sorted(fin["nome"].drop_duplicates().tolist())
     cols_fin = st.columns(len(empresas_fin))
@@ -213,7 +214,7 @@ if not fin.empty:
         with col:
             st.markdown(
                 f'<div class="cv-card"><div style="font-weight:700;margin-bottom:6px">{nome}</div>'
-                f'<div class="src" style="margin-bottom:8px">exercicio {ref_txt}</div>'
+                f'<div class="src" style="margin-bottom:8px">exercício {ref_txt}</div>'
                 + "".join(linhas_html)
                 + "</div>",
                 unsafe_allow_html=True,
@@ -223,6 +224,6 @@ st.markdown(
     '<div class="src" style="margin-top:14px;line-height:1.6">Dados operacionais divulgados pelas '
     "próprias usinas em releases de produção. A leitura agregada soma as usinas acompanhadas para "
     "indicar se a moagem do conjunto sobe ou desce. Período de referência: "
-    f"{PERIODO_ATUAL}. Fontes previstas: releases de produção e CVM (financeiro).</div>",
+    f"{PERIODO_ATUAL}. Financeiro: CVM (demonstrações padronizadas).</div>",
     unsafe_allow_html=True,
 )

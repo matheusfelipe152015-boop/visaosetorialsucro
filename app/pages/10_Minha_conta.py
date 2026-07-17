@@ -1,7 +1,7 @@
-"""Pagina — Minha conta: entrar, cadastrar e ver o nivel de acesso.
+"""Página — Minha conta: entrar, cadastrar e ver o nível de acesso.
 
-A senha unica continua abrindo a plataforma. Este login individual e um
-segundo portao, mais forte, que dara acesso ao Raio X (a integrar depois).
+A senha única continua abrindo a plataforma. Este login individual é um
+segundo portão, mais forte, que dá acesso ao Raio X (a integrar depois).
 """
 
 from __future__ import annotations
@@ -23,34 +23,40 @@ from src.contas import autenticar, cadastrar, usuario_logado
 from src.persistence.db import init_schema
 from src.theme import apply_theme
 
-st.set_page_config(page_title="VISAO SETORIAL SUCRO . Minha conta", page_icon="⬡", layout="wide")
-exigir_login()
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Minha conta", page_icon="⬡", layout="wide")
+exigir_login()          # senha única da plataforma
 init_schema()
 apply_theme()
 
-_NIVEL_TXT = {"adm": "Administrador", "gerencia": "Gerencia", "analista": "Analista"}
+_NIVEL_TXT = {
+    "adm": "Administrador",
+    "gerencia": "Gerência",
+    "analista": "Analista",
+}
 
 st.markdown('<div class="eyebrow">Minha conta — acesso individual</div>', unsafe_allow_html=True)
 st.title("Minha conta")
 
 u = usuario_logado()
 
+# ── já logado: mostra quem é e oferece sair ──────────────────────────────
 if u:
-    st.success(f"Voce esta conectado como **{u['nome'] or u['email']}**.")
+    st.success(f"Você está conectado como **{u['nome'] or u['email']}**.")
     st.markdown(
-        f'<div class="cv-card"><div class="src">Nivel de acesso</div>'
+        f'<div class="cv-card"><div class="src">Nível de acesso</div>'
         f'<div style="font-size:20px;font-weight:700;margin-top:4px">'
         f'{_NIVEL_TXT.get(u["papel"], u["papel"])}</div></div>',
         unsafe_allow_html=True,
     )
     st.write("")
     if u["papel"] in ("adm", "gerencia"):
-        st.info("Voce tem acesso a tela de **Administracao** (no menu ao lado).")
+        st.info("Você tem acesso à tela de **Administração** (no menu ao lado).")
     if st.button("Sair da conta"):
         st.session_state.pop("_usuario", None)
         st.rerun()
     st.stop()
 
+# ── não logado: abas Entrar / Cadastrar ──────────────────────────────────
 aba_entrar, aba_cadastrar = st.tabs(["Entrar", "Criar cadastro"])
 
 with aba_entrar:
@@ -68,19 +74,19 @@ with aba_entrar:
 with aba_cadastrar:
     st.markdown("##### Criar um novo cadastro")
     st.caption(
-        "Apos o cadastro, seu acesso fica pendente ate um administrador ou "
+        "Após o cadastro, seu acesso fica pendente até um administrador ou "
         "gerente aprovar."
     )
     nome_c = st.text_input("Nome", key="cad_nome")
     email_c = st.text_input("Email", key="cad_email")
     senha_c = st.text_input(
-        "Senha (minimo 8 caracteres, com letras e numeros)",
+        "Senha (mínimo 8 caracteres, com letras e números)",
         type="password", key="cad_senha",
     )
     senha_c2 = st.text_input("Repita a senha", type="password", key="cad_senha2")
     if st.button("Criar cadastro"):
         if senha_c != senha_c2:
-            st.error("As senhas nao conferem.")
+            st.error("As senhas não conferem.")
         else:
             ok, msg = cadastrar(email_c, nome_c, senha_c)
             if ok:

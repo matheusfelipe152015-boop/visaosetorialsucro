@@ -17,15 +17,14 @@ from datetime import date
 import streamlit as st
 
 from src.app_auth import exigir_login
-
 from src.domain.enums import Frequency
+from src.domain.freshness import freshness_status
 from src.formato import fmt_indicador, fmt_valor
 
-# Fontes com coletor de verdade. As demais ainda sao demonstracao e
-# PRECISAM aparecer marcadas: numero plausivel sem fonte e pior que
-# numero nenhum (alguem pode citar em reuniao achando que e real).
+# Fontes com coletor de verdade. As demais ainda são demonstração e
+# PRECISAM aparecer marcadas — número plausível sem fonte é pior que
+# número nenhum (alguém pode citar em reunião achando que é real).
 FONTES_REAIS = {"bcb_sgs", "anp", "comex", "conab", "cvm", "yahoo", "b3"}
-from src.domain.freshness import freshness_status
 from src.persistence.db import fetch_df, init_schema
 from src.services.news import PERIODO_DIAS, TODAS, filter_articles
 from src.theme import apply_theme, fresh_badge
@@ -63,6 +62,7 @@ movers = fetch_df(
     """
 )
 
+# no máximo 4 por linha: cards espremidos ficam ilegíveis
 POR_LINHA = 4
 linhas_kpi = [movers.iloc[i:i + POR_LINHA] for i in range(0, len(movers), POR_LINHA)]
 for bloco in linhas_kpi:
@@ -76,7 +76,7 @@ for bloco in linhas_kpi:
             fresh_badge(status, ref=ref.strftime("%d/%m"))
             if eh_real
             else '<span class="tag" style="background:#FBF3E0;color:#8A5D0F;'
-                 'border-color:#E0B457">demonstracao</span>'
+                 'border-color:#E0B457">demonstração</span>'
         )
         with col:
             st.markdown(
@@ -98,6 +98,7 @@ articles = fetch_df(
 )
 companies = fetch_df("SELECT code, nome FROM companies")
 watch = set(fetch_df("SELECT company_code FROM watchlists")["company_code"])
+# consultas pesadas de notícias só quando há notícias (evita idas ao banco à toa)
 if not articles.empty:
     mentions = fetch_df("SELECT article_id, company_code FROM article_company_mentions")
     topics_map = fetch_df(
@@ -150,34 +151,40 @@ with left:
             titulo_html = (
                 f'<a href="{url}" target="_blank" rel="noopener" '
                 f'style="font-weight:600;color:var(--tinta);text-decoration:none">'
-                f'{n["titulo"]} <span style="color:#8A968F;font-size:12px">\u2197</span></a>'
+                f'{n["titulo"]} <span style="color:#8A968F;font-size:12px">↗</span></a>'
             )
         else:
             titulo_html = f'<div style="font-weight:600">{n["titulo"]}</div>'
-        veiculo_txt = (
-            n["resumo"]
-            if n["resumo"] and str(n["resumo"]) != "None"
-            else n["source_code"]
-        )
+        data_txt = ""
+        if n["data_publicacao"] and str(n["data_publicacao"]) != "None":
+            try:
+                data_txt = date.fromisoformat(str(n["data_publicacao"])[:10]).strftime("%d/%m")
+            except ValueError:
+                data_txt = ""
         rows += (
             f'<div style="padding:11px 0;border-bottom:1px solid #EFEBE0">'
             f'{titulo_html}'
-            f'<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">{co_chips}{tp_chips}'
-            f'<span class="tag">{veiculo_txt}</span></div></div>'
+            f'<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+            f'{co_chips}{tp_chips}<span class="tag">{n["source_code"]}</span>'
+            + (f'<span class="src">{data_txt}</span>' if data_txt else "")
+            + "</div></div>"
         )
     if not rows:
         rows = '<div class="src" style="padding:14px 0">Nenhuma notícia para os filtros selecionados.</div>'
+    # Sinaliza demonstração apenas enquanto não houver notícia real (com link).
     tem_real = (
         not articles.empty
         and articles["url_canonica"].astype(str).str.startswith("http").any()
     )
-    aviso_demo = "" if tem_real else (
-        '<div class="demobar" style="margin:6px 0 12px">\u2b21 Not\u00edcias de <b>demonstra\u00e7\u00e3o</b> \u2014 '
-        "t\u00edtulos ilustrativos, n\u00e3o s\u00e3o reais. A coleta de not\u00edcias ainda n\u00e3o foi ligada.</div>"
+    aviso_demo = (
+        ""
+        if tem_real
+        else '<div class="demobar" style="margin:6px 0 12px">⬡ Notícias de <b>demonstração</b> — '
+        "títulos ilustrativos, não são reais. A coleta de notícias ainda não foi ligada.</div>"
     )
     st.markdown(
-        f'<div class="cv-card"><h3>Principais not\u00edcias '
-        f'<span class="src">\u00b7 {len(filt)} de {len(articles)}</span></h3>{aviso_demo}{rows}</div>',
+        f'<div class="cv-card"><h3>Principais notícias '
+        f'<span class="src">· {len(filt)} de {len(articles)}</span></h3>{aviso_demo}{rows}</div>',
         unsafe_allow_html=True,
     )
 

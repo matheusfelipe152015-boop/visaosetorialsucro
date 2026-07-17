@@ -1,4 +1,9 @@
-"""Pagina 9 — Anotacoes: registros escritos manualmente, salvos no banco."""
+"""Página 9 — Anotações: registros escritos manualmente, salvos no banco.
+
+Campo de título, campo de conteúdo, botão salvar, lista das anotações, com
+editar e excluir. Persiste no banco (Supabase/SQLite), então continua salvo
+ao atualizar, fechar e reabrir.
+"""
 
 from __future__ import annotations
 
@@ -26,59 +31,65 @@ from src.app_auth import exigir_login
 from src.persistence.db import init_schema
 from src.theme import apply_theme
 
-st.set_page_config(page_title="VISAO SETORIAL SUCRO . Anotacoes", page_icon="⬡", layout="wide")
+st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Anotações", page_icon="⬡", layout="wide")
 exigir_login()
 init_schema()
 apply_theme()
 
 
-def _fmt_data(v):
+def _fmt_data(v) -> str:
+    """Formata a data/hora de atualização para exibição."""
     if v is None or str(v) == "None":
         return ""
     try:
         dt = datetime.fromisoformat(str(v)[:19])
-        return dt.strftime("%d/%m/%Y as %H:%M")
+        return dt.strftime("%d/%m/%Y às %H:%M")
     except ValueError:
         return str(v)[:16]
 
 
-st.markdown('<div class="eyebrow">09 . Anotacoes — registros do setor</div>', unsafe_allow_html=True)
-st.title("Anotacoes")
+st.markdown('<div class="eyebrow">09 · Anotações — registros do setor</div>', unsafe_allow_html=True)
+st.title("Anotações")
 
+# ── formulário de nova anotação (ou edição) ──────────────────────────────
+# guardamos em session_state qual anotação está sendo editada (se houver)
 editando = st.session_state.get("anot_editando")
 
 if editando:
-    st.markdown('<div class="src" style="margin-bottom:6px">Editando anotacao</div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="src" style="margin-bottom:6px">Editando anotação</div>',
+        unsafe_allow_html=True,
+    )
 
 titulo = st.text_input(
-    "Titulo",
+    "Título",
     value=editando["titulo"] if editando else "",
     key="anot_titulo",
-    placeholder="Ex.: Reuniao com usina X, insight sobre paridade...",
+    placeholder="Ex.: Reunião com usina X, insight sobre paridade...",
 )
 conteudo = st.text_area(
-    "Conteudo",
+    "Conteúdo",
     value=editando["conteudo"] if editando else "",
     key="anot_conteudo",
     height=180,
-    placeholder="Escreva aqui sua anotacao...",
+    placeholder="Escreva aqui sua anotação...",
 )
 
 col_salvar, col_cancelar, _ = st.columns([1, 1, 4])
 with col_salvar:
     if st.button("Salvar", type="primary", width="stretch"):
         if not titulo.strip() and not conteudo.strip():
-            st.warning("Escreva ao menos um titulo ou conteudo.")
+            st.warning("Escreva ao menos um título ou conteúdo.")
         else:
-            titulo_final = titulo.strip() or "(sem titulo)"
+            titulo_final = titulo.strip() or "(sem título)"
             if editando:
                 atualizar_anotacao(editando["id"], titulo_final, conteudo)
                 st.session_state.pop("anot_editando", None)
-                st.success("Anotacao atualizada.")
+                st.success("Anotação atualizada.")
             else:
                 criar_anotacao(titulo_final, conteudo)
-                st.success("Anotacao salva.")
+                st.success("Anotação salva.")
+            # limpa os campos e recarrega
             st.session_state.pop("anot_titulo", None)
             st.session_state.pop("anot_conteudo", None)
             st.rerun()
@@ -93,16 +104,17 @@ if editando:
 
 st.markdown("---")
 
+# ── lista das anotações salvas ───────────────────────────────────────────
 anotacoes = listar_anotacoes()
 
 if anotacoes.empty:
     st.markdown(
-        '<div class="src" style="padding:20px 0">Nenhuma anotacao ainda. '
+        '<div class="src" style="padding:20px 0">Nenhuma anotação ainda. '
         "Escreva a primeira acima.</div>",
         unsafe_allow_html=True,
     )
 else:
-    st.markdown(f"##### Salvas . {len(anotacoes)}")
+    st.markdown(f"##### Salvas · {len(anotacoes)}")
     for _, r in anotacoes.iterrows():
         with st.container():
             st.markdown(
@@ -124,6 +136,7 @@ else:
                     st.rerun()
             with c_del:
                 if st.button("Excluir", key=f"del_{r['id']}", width="stretch"):
+                    # confirmação em duas etapas para não apagar sem querer
                     if st.session_state.get("anot_confirma_del") == r["id"]:
                         excluir_anotacao(r["id"])
                         st.session_state.pop("anot_confirma_del", None)
@@ -132,4 +145,4 @@ else:
                         st.session_state["anot_confirma_del"] = r["id"]
                         st.rerun()
             if st.session_state.get("anot_confirma_del") == r["id"]:
-                st.warning("Clique em **Excluir** de novo para confirmar a exclusao.")
+                st.warning("Clique em **Excluir** de novo para confirmar a exclusão.")

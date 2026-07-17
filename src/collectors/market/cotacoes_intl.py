@@ -1,18 +1,22 @@
-"""Coletor de cotacoes internacionais (acucar NY no 11, Brent).
+"""Coletor de cotações internacionais (açúcar NY nº 11, Brent).
 
-Fonte: Yahoo Finance (endpoint publico, sem cadastro).
+Fonte: Yahoo Finance (endpoint público de gráficos, sem cadastro).
 
-HONESTIDADE SOBRE A FONTE:
-  - A fonte PRIMARIA do acucar NY no 11 e a bolsa ICE, e o dado oficial e PAGO.
-    O Yahoo republica a cotacao com atraso.
-  - Serve para LER TENDENCIA, nao para liquidar contrato.
-  - E API nao-oficial: se o Yahoo mudar, o coletor FALHA (aparece em Saude dos
-    dados) — mas nunca inventa numero.
+HONESTIDADE SOBRE A FONTE — leia antes de usar em decisão:
+  · A fonte PRIMÁRIA do açúcar NY nº 11 é a bolsa ICE, e o dado oficial dela é
+    pago. O Yahoo republica a cotação com atraso.
+  · Portanto, este número serve para LER TENDÊNCIA de mercado, não para
+    liquidar contrato. Para uso contratual, assine a ICE.
+  · É uma API não-oficial: o Yahoo pode mudá-la sem aviso. Se isso acontecer,
+    o coletor falha (e aparece em "Saúde dos dados") — mas não inventa número.
+
+Por isso os valores entram com status "a_conferir": a plataforma mostra, mas
+avisa que é fonte secundária.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -23,14 +27,15 @@ from src.domain.models import IndicatorValue
 SOURCE_CODE = "yahoo"
 YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
 
+# ticker do Yahoo -> (indicador na plataforma, unidade, moeda)
 TICKERS = {
-    "SB=F": ("sugar_ny11", "\u00a2/lb", "USD"),
-    "BZ=F": ("brent", "US$/bbl", "USD"),
+    "SB=F": ("sugar_ny11", "¢/lb", "USD"),   # Açúcar NY nº 11 (ICE)
+    "BZ=F": ("brent", "US$/bbl", "USD"),     # Petróleo Brent
 }
 
 
-def parse_yahoo(payload, ticker):
-    """Extrai os fechamentos diarios do JSON do Yahoo."""
+def parse_yahoo(payload: dict, ticker: str) -> list[IndicatorValue]:
+    """Extrai os fechamentos diários do JSON do Yahoo."""
     if ticker not in TICKERS:
         return []
     code, unidade, moeda = TICKERS[ticker]
@@ -43,12 +48,12 @@ def parse_yahoo(payload, ticker):
     quotes = ((r.get("indicators") or {}).get("quote") or [{}])[0]
     closes = quotes.get("close") or []
 
-    agora = datetime.now(timezone.utc)
-    out = []
+    agora = datetime.now(UTC)
+    out: list[IndicatorValue] = []
     for ts, close in zip(timestamps, closes, strict=False):
         if close is None:
-            continue
-        ref = datetime.fromtimestamp(ts, tz=timezone.utc).date()
+            continue  # feriado/pregão sem fechamento
+        ref = datetime.fromtimestamp(ts, tz=UTC).date()
         out.append(
             IndicatorValue(
                 indicator_code=code,
@@ -61,6 +66,7 @@ def parse_yahoo(payload, ticker):
                 data_publicacao=ref,
                 data_coleta=agora.replace(tzinfo=None),
                 collector_version="0.1.0",
+                # fonte secundária (a primária, ICE, é paga): sinalizamos
                 status_validacao=ValidationStatus.PENDING,
                 url_original=f"https://finance.yahoo.com/quote/{ticker}",
             )
@@ -72,11 +78,11 @@ class CotacoesIntlCollector(Collector):
     source_code = SOURCE_CODE
     version = "0.1.0"
 
-    def __init__(self, range_="3mo"):
+    def __init__(self, range_: str = "3mo") -> None:
         self.range = range_
 
-    def collect(self):
-        out = []
+    def collect(self) -> list[IndicatorValue]:
+        out: list[IndicatorValue] = []
         for ticker in TICKERS:
             try:
                 resp = httpx.get(
@@ -88,6 +94,6 @@ class CotacoesIntlCollector(Collector):
                 )
                 resp.raise_for_status()
                 out.extend(parse_yahoo(resp.json(), ticker))
-            except Exception:
+            except Exception:  # noqa: BLE001 — um ticker fora não derruba o outro
                 continue
         return out

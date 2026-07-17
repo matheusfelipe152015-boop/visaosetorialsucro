@@ -1,10 +1,12 @@
 -- 0006_safra_uf.sql — safra de cana por estado (CONAB).
+-- Uma linha por UF × safra × métrica. Portátil SQLite/PostgreSQL.
+
 CREATE TABLE IF NOT EXISTS safra_uf (
     id               TEXT PRIMARY KEY,
     uf               TEXT NOT NULL,
     regiao           TEXT,
-    safra            TEXT NOT NULL,
-    metric           TEXT NOT NULL,
+    safra            TEXT NOT NULL,        -- ex.: 2025/26
+    metric           TEXT NOT NULL,        -- cana_producao | acucar_producao | etanol_producao | area_plantada | atr
     valor            DOUBLE PRECISION NOT NULL,
     unidade          TEXT,
     data_referencia  DATE,

@@ -225,6 +225,8 @@ def run() -> None:
             )
 
         for i, (titulo, src, days_ago, empresa, temas, regiao, segmento) in enumerate(NEWS):
+            # URL interna só para manter a chave; começa com "demo:" para que o
+            # app saiba que NÃO é notícia real (e não vire link clicável).
             url = f"demo:{i}"
             c.execute(
                 text(

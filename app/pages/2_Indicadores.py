@@ -22,7 +22,6 @@ from datetime import date
 import streamlit as st
 
 from src.app_auth import exigir_login
-
 from src.domain.enums import Frequency
 from src.domain.freshness import freshness_status
 from src.persistence.db import fetch_df, init_schema

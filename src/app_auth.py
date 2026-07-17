@@ -1,4 +1,14 @@
-"""Portão de acesso (login por senha única de equipe)."""
+"""Portão de acesso (login por senha única de equipe).
+
+Protege todas as telas com uma senha compartilhada. A senha NÃO fica escrita no
+código: é lida de st.secrets (cofre do Streamlit Cloud) ou da variável de
+ambiente APP_PASSWORD. Enquanto nenhuma senha estiver configurada, o portão fica
+aberto (útil em desenvolvimento local).
+
+Uso em cada página, logo após import do streamlit:
+    from app._auth import exigir_login
+    exigir_login()
+"""
 
 from __future__ import annotations
 
@@ -7,8 +17,10 @@ import os
 
 import streamlit as st
 
-# Ponte cofre -> ambiente: na nuvem do Streamlit, os segredos ficam em
-# st.secrets. O resto do projeto lê de variáveis de ambiente. Copiamos aqui.
+# Ponte cofre -> ambiente: na nuvem do Streamlit, os segredos (DATABASE_URL,
+# APP_PASSWORD) ficam em st.secrets. O restante do projeto lê de variáveis de
+# ambiente. Copiamos um para o outro AQUI, que é importado no topo de cada
+# página, antes de a configuração do banco ser carregada.
 try:
     for _k, _v in st.secrets.items():
         if isinstance(_v, str):
@@ -18,6 +30,7 @@ except Exception:
 
 
 def _senha_configurada() -> str | None:
+    """Lê a senha do cofre (st.secrets) ou do ambiente. None = sem senha definida."""
     try:
         if "APP_PASSWORD" in st.secrets:
             return str(st.secrets["APP_PASSWORD"])
@@ -27,11 +40,18 @@ def _senha_configurada() -> str | None:
 
 
 def exigir_login() -> None:
+    """Bloqueia a página até a senha correta ser informada.
+
+    Se nenhuma senha estiver configurada (dev local), libera o acesso.
+    """
     senha_certa = _senha_configurada()
     if not senha_certa:
-        return
+        return  # sem senha definida -> acesso liberado (ambiente local)
+
     if st.session_state.get("_autenticado"):
-        return
+        return  # já entrou nesta sessão
+
+    # tela de login
     st.markdown(
         """
         <div style="max-width:420px;margin:8vh auto 0;text-align:center">
@@ -51,4 +71,4 @@ def exigir_login() -> None:
                 st.rerun()
             else:
                 st.error("Senha incorreta. Tente novamente.")
-    st.stop()
+    st.stop()  # impede o resto da página de carregar enquanto não logar

@@ -1,4 +1,17 @@
-"""Coletor CONAB — safra de cana (producao, area, ATR) por estado e Brasil."""
+"""Coletor CONAB — safra de cana (produção, área, ATR) por estado e Brasil.
+
+Fonte: Portal de Informações Agropecuárias da CONAB (dados abertos).
+Arquivo: SerieHistoricaCana.txt — CSV ';', uma linha por UF × safra.
+
+Guarda DOIS níveis:
+  1. por estado  -> tabela safra_uf (alimenta o mapa do Brasil);
+  2. total Brasil -> indicator_values (alimenta os KPIs/indicadores).
+
+O ATR é média ponderada pela produção (somar ATR não faria sentido).
+
+Licença: a CONAB autoriza reprodução sem fins lucrativos, citando a fonte.
+Números: a área usa VÍRGULA decimal ("402,1"); a produção usa PONTO ("23110.7").
+"""
 
 from __future__ import annotations
 
@@ -25,7 +38,7 @@ COLUNAS = {
     "producao_acucar_mil_t": ("acucar_producao", "mil t"),
     "producao_etanol_total_mil_l": ("etanol_producao", "mil L"),
 }
-COL_ATR = "produtcao_atr_kg_t"
+COL_ATR = "produtcao_atr_kg_t"  # (sic: o nome vem com typo no arquivo da CONAB)
 
 
 def _num(v):
@@ -41,6 +54,7 @@ def _num(v):
 
 
 def _data_da_safra(ano_agricola):
+    """Safra '2025/26' -> 31/03/2026 (fim do ciclo)."""
     s = (ano_agricola or "").strip()
     if "/" not in s:
         return None
@@ -55,9 +69,9 @@ def _data_da_safra(ano_agricola):
         return None
 
 
-def parse_conab_uf(conteudo):
+def parse_conab_uf(conteudo: str) -> list[dict]:
     """Extrai as linhas por ESTADO (para o mapa)."""
-    out = []
+    out: list[dict] = []
     for linha in csv.DictReader(io.StringIO(conteudo), delimiter=";"):
         safra = (linha.get("ano_agricola") or "").strip()
         uf = (linha.get("uf") or "").strip()
@@ -83,11 +97,11 @@ def parse_conab_uf(conteudo):
     return out
 
 
-def agrega_brasil(linhas_uf):
-    """Soma os estados no total Brasil (ATR = media ponderada pela producao)."""
-    somas = {}
-    prod_por_uf_safra = {}
-    atr_pares = {}
+def agrega_brasil(linhas_uf: list[dict]) -> list[IndicatorValue]:
+    """Soma os estados no total Brasil (ATR = média ponderada pela produção)."""
+    somas: dict[tuple, float] = {}
+    prod_por_uf_safra: dict[tuple, float] = {}
+    atr_pares: dict[str, list] = {}
 
     for r in linhas_uf:
         if r["metric"] == "cana_producao":
@@ -103,7 +117,7 @@ def agrega_brasil(linhas_uf):
             somas[chave] = somas.get(chave, 0.0) + r["valor"]
 
     agora = datetime.utcnow()
-    out = []
+    out: list[IndicatorValue] = []
     for (_safra, metric, unidade, ref), total in somas.items():
         if ref is None:
             continue
@@ -128,7 +142,7 @@ def agrega_brasil(linhas_uf):
     return out
 
 
-def upsert_safra_uf(linhas):
+def upsert_safra_uf(linhas: list[dict]) -> int:
     """Grava as linhas por estado (idempotente)."""
     eng = get_engine()
     agora = datetime.utcnow()
@@ -160,7 +174,7 @@ class ConabCanaCollector:
     source_code = SOURCE_CODE
     version = "0.1.0"
 
-    def collect(self):
+    def collect(self) -> tuple[list[dict], list[IndicatorValue]]:
         resp = httpx.get(CONAB_URL, timeout=60, headers={"User-Agent": "visaosetorialsucro/0.1"})
         resp.raise_for_status()
         texto = resp.content.decode("utf-8", errors="replace")
@@ -168,7 +182,7 @@ class ConabCanaCollector:
         brasil = agrega_brasil(por_uf)
         return por_uf, brasil
 
-    def run(self):
+    def run(self) -> CollectorResult:
         started = datetime.utcnow()
         try:
             por_uf, brasil = self.collect()
@@ -179,7 +193,7 @@ class ConabCanaCollector:
                 finished_at=datetime.utcnow(),
                 rows_seen=len(por_uf) + len(brasil), rows_new=n1 + n2, ok=True,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             result = CollectorResult(
                 source_code=self.source_code, started_at=started,
                 finished_at=datetime.utcnow(), ok=False,

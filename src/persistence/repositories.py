@@ -115,7 +115,12 @@ def log_run(result: CollectorResult) -> None:
 
 
 def upsert_company_metrics(rows: list[dict]) -> int:
-    """Insere/atualiza métricas de empresa (idempotente). Devolve quantas novas."""
+    """Insere/atualiza métricas de empresa (operacional/financeiro), idempotente.
+
+    Chave de unicidade: (company_code, metric, periodo, fonte). Devolve quantos
+    registros eram novos. Cada row: company, metric, valor, unidade, grupo,
+    periodo, fonte, data_referencia, data_publicacao (opcionais com default).
+    """
     from datetime import datetime
 
     eng = get_engine()
@@ -146,12 +151,21 @@ def upsert_company_metrics(rows: list[dict]) -> int:
                          status_validacao=excluded.status_validacao"""
                 ),
                 {
-                    "id": uuid.uuid4().hex, "c": r["company"], "m": r["metric"],
-                    "g": r.get("grupo", "financeiro"), "sf": r.get("safra"), "p": periodo,
-                    "dr": r.get("data_referencia"), "v": r["valor"], "u": r.get("unidade"),
-                    "f": fonte, "dp": r.get("data_publicacao"), "dc": datetime.utcnow(),
+                    "id": uuid.uuid4().hex,
+                    "c": r["company"],
+                    "m": r["metric"],
+                    "g": r.get("grupo", "financeiro"),
+                    "sf": r.get("safra"),
+                    "p": periodo,
+                    "dr": r.get("data_referencia"),
+                    "v": r["valor"],
+                    "u": r.get("unidade"),
+                    "f": fonte,
+                    "dp": r.get("data_publicacao"),
+                    "dc": datetime.utcnow(),
                     "cv": r.get("collector_version", "0.1.0"),
-                    "st": r.get("status_validacao", "a_conferir"), "url": r.get("url_original"),
+                    "st": r.get("status_validacao", "a_conferir"),
+                    "url": r.get("url_original"),
                 },
             )
     return new

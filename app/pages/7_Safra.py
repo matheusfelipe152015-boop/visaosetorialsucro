@@ -1,4 +1,10 @@
-"""Pagina 7 — Safra: mapa da producao de cana por estado (CONAB)."""
+"""Página 7 — Safra: mapa da produção de cana por estado (CONAB).
+
+Mostra onde está a força do setor: produção de cana, açúcar, etanol, área e ATR
+por estado, num mapa coroplético do Brasil, safra a safra.
+
+Fonte: CONAB (Portal de Informações Agropecuárias) — dados abertos.
+"""
 
 from __future__ import annotations
 
@@ -30,19 +36,19 @@ GEOJSON = Path(_r) / "assets" / "geo" / "br_estados.geojson"
 
 
 @st.cache_data
-def carrega_geo():
+def carrega_geo() -> dict:
     return json.loads(GEOJSON.read_text(encoding="utf-8"))
 
 
 METRICAS = {
-    "cana_producao": ("Producao de cana", "mil t", [[0, "#F0E0BC"], [0.5, "#6FB28C"], [1, "#0E3F2A"]]),
-    "acucar_producao": ("Producao de acucar", "mil t", [[0, "#FBF3E0"], [0.5, "#E0B457"], [1, "#8A5D0F"]]),
-    "etanol_producao": ("Producao de etanol", "mil L", [[0, "#E8F0EC"], [0.5, "#5FA37C"], [1, "#14573A"]]),
-    "cana_area_plantada": ("Area plantada", "mil ha", [[0, "#EFEBE0"], [0.5, "#9BB09F"], [1, "#2E4A38"]]),
-    "cana_atr_medio": ("ATR medio", "kg/t", [[0, "#F4F1E9"], [0.5, "#C6881C"], [1, "#7A4E08"]]),
+    "cana_producao": ("Produção de cana", "mil t", [[0, "#F0E0BC"], [0.5, "#6FB28C"], [1, "#0E3F2A"]]),
+    "acucar_producao": ("Produção de açúcar", "mil t", [[0, "#FBF3E0"], [0.5, "#E0B457"], [1, "#8A5D0F"]]),
+    "etanol_producao": ("Produção de etanol", "mil L", [[0, "#E8F0EC"], [0.5, "#5FA37C"], [1, "#14573A"]]),
+    "cana_area_plantada": ("Área plantada", "mil ha", [[0, "#EFEBE0"], [0.5, "#9BB09F"], [1, "#2E4A38"]]),
+    "cana_atr_medio": ("ATR médio", "kg/t", [[0, "#F4F1E9"], [0.5, "#C6881C"], [1, "#7A4E08"]]),
 }
 
-st.markdown('<div class="eyebrow">07 · Safra — producao por estado</div>', unsafe_allow_html=True)
+st.markdown('<div class="eyebrow">07 · Safra — produção por estado</div>', unsafe_allow_html=True)
 st.title("Mapa da safra")
 
 dados_todos = fetch_df(
@@ -50,13 +56,16 @@ dados_todos = fetch_df(
 )
 
 if dados_todos.empty:
-    st.info("Sem dados de safra ainda. Rode `python3.12 jobs/run_daily.py` para coletar da CONAB.")
+    st.info("Sem dados de safra ainda. Rode `python jobs/run_daily.py` para coletar da CONAB.")
     st.stop()
 
+# ── controles ────────────────────────────────────────────────────────────
 c1, c2 = st.columns([1, 1])
 safras = sorted(dados_todos["safra"].unique(), reverse=True)
 safra = c1.selectbox("Safra", safras, index=0)
-metrica_nome = c2.selectbox("Indicador", [v[0] for v in METRICAS.values()], index=0)
+metrica_nome = c2.selectbox(
+    "Indicador", [v[0] for v in METRICAS.values()], index=0
+)
 metrica = next(k for k, v in METRICAS.items() if v[0] == metrica_nome)
 label, unidade, escala = METRICAS[metrica]
 
@@ -65,15 +74,16 @@ dados = dados_todos[
 ].copy()
 
 if dados.empty:
-    st.warning("Sem dados para essa combinacao.")
+    st.warning("Sem dados para essa combinação.")
     st.stop()
 
 geo = carrega_geo()
 
+# ── KPIs do topo ─────────────────────────────────────────────────────────
 total = dados["valor"].sum()
 lider = dados.loc[dados["valor"].idxmax()]
 k1, k2, k3 = st.columns(3)
-agregado = "media" if metrica == "cana_atr_medio" else "total"
+agregado = "média" if metrica == "cana_atr_medio" else "total"
 valor_agregado = dados["valor"].mean() if metrica == "cana_atr_medio" else total
 k1.markdown(
     f'<div class="cv-kpi"><div class="nm">{label} · Brasil ({agregado})</div>'
@@ -88,12 +98,13 @@ k2.markdown(
     unsafe_allow_html=True,
 )
 k3.markdown(
-    f'<div class="cv-kpi"><div class="nm">Estados com producao</div>'
+    f'<div class="cv-kpi"><div class="nm">Estados com produção</div>'
     f'<div class="val">{len(dados)}</div>'
     f'<div style="margin-top:6px"><span class="src">na safra {safra}</span></div></div>',
     unsafe_allow_html=True,
 )
 
+# ── mapa coroplético ─────────────────────────────────────────────────────
 fig = go.Figure(
     go.Choropleth(
         geojson=geo,
@@ -107,7 +118,7 @@ fig = go.Figure(
         customdata=dados[["regiao"]],
         hovertemplate=(
             "<b>%{location}</b> (%{customdata[0]})<br>"
-            + label + ": %{z:,.1f} " + unidade + "<extra></extra>"
+            f"{label}: " + "%{z:,.1f} " + unidade + "<extra></extra>"
         ),
     )
 )
@@ -118,15 +129,16 @@ fig.update_layout(
 )
 st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
+# ── ranking dos estados ──────────────────────────────────────────────────
 st.markdown("##### Todos os estados")
 rank = dados.sort_values("valor", ascending=False)[["uf", "regiao", "valor"]].copy()
 rank["valor"] = rank["valor"].round(1)
-rank.columns = ["UF", "Regiao", f"{label} ({unidade})"]
+rank.columns = ["UF", "Região", f"{label} ({unidade})"]
 st.dataframe(rank.set_index("UF"), width="stretch")
 
 st.markdown(
     '<div class="src" style="margin-top:14px;line-height:1.6">Fonte: CONAB — Portal de '
-    "Informacoes Agropecuarias, Serie Historica da Cana-de-acucar. Levantamentos "
-    "quadrimestrais; safras recentes sao previsoes. Reproducao autorizada citando a fonte.</div>",
+    "Informações Agropecuárias, Série Histórica da Cana-de-açúcar. Levantamentos "
+    "quadrimestrais; safras recentes são previsões. Reprodução autorizada citando a fonte.</div>",
     unsafe_allow_html=True,
 )

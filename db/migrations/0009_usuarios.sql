@@ -1,4 +1,10 @@
--- 0009_usuarios.sql — contas individuais (email + senha), niveis e aprovacao.
+-- 0009_usuarios.sql — contas individuais (email + senha), com níveis e aprovação.
+--
+-- Níveis (papel): 'adm', 'gerencia', 'analista'.
+-- Situação: 'pendente' (aguardando aprovação) ou 'ativo'.
+-- A senha NUNCA é guardada em texto: guardamos o hash PBKDF2 + o "sal".
+-- Portátil SQLite/PostgreSQL.
+
 CREATE TABLE IF NOT EXISTS usuarios (
     id             TEXT PRIMARY KEY,
     email          TEXT NOT NULL UNIQUE,

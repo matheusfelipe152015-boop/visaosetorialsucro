@@ -1,4 +1,7 @@
--- 0008_anotacoes.sql — anotacoes/registros do usuario.
+-- 0008_anotacoes.sql — anotações/registros do usuário.
+-- Textos escritos manualmente, salvos no banco (persistem entre sessões e
+-- dispositivos). Portátil SQLite/PostgreSQL.
+
 CREATE TABLE IF NOT EXISTS anotacoes (
     id              TEXT PRIMARY KEY,
     titulo          TEXT NOT NULL,

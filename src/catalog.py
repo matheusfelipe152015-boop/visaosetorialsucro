@@ -35,9 +35,7 @@ SOURCES = [
     ("reuters", "Reuters", "Reuters", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
     ("jornalcana", "JornalCana", "JornalCana", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
     ("epbr", "epbr", "epbr", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
-    ("noticiasagricolas", "Noticias Agricolas", "Noticias Agricolas", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
-    ("udop", "UDOP", "UDOP", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
-    ("google_news", "Google Noticias", "Google", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
+    ("noticiasagricolas", "Notícias Agrícolas", "Notícias Agrícolas", "C", "rss", "metadados+link", 1, "eventual", 1, "Atualizado"),
 ]
 
 INDICATORS = [
@@ -76,12 +74,12 @@ INDICATORS = [
     # Visão mundial (USDA)
     ("usda_acucar_prod", "Produção mundial de açúcar", "Visão mundial", "Mt", None, "milhões", "usda", "monthly", 0),
     ("usda_acucar_estoque", "Estoques mundiais de açúcar", "Visão mundial", "Mt", None, "milhões", "usda", "monthly", 0),
-    # Safra & producao (CONAB)
-    ("cana_producao", "Producao de cana (Brasil)", "Safra & producao", "mil t", None, "unit", "conab", "eventual", 1),
-    ("cana_area_plantada", "Area plantada de cana", "Safra & producao", "mil ha", None, "unit", "conab", "eventual", 0),
-    ("acucar_producao", "Producao de acucar (Brasil)", "Safra & producao", "mil t", None, "unit", "conab", "eventual", 1),
-    ("etanol_producao", "Producao de etanol (Brasil)", "Safra & producao", "mil L", None, "unit", "conab", "eventual", 1),
-    ("cana_atr_medio", "ATR medio (Brasil)", "Safra & producao", "kg/t", None, "unit", "conab", "eventual", 0),
+    # Safra & produção (CONAB)
+    ("cana_producao", "Produção de cana (Brasil)", "Safra & produção", "mil t", None, "unit", "conab", "eventual", 1),
+    ("cana_area_plantada", "Área plantada de cana", "Safra & produção", "mil ha", None, "unit", "conab", "eventual", 0),
+    ("acucar_producao", "Produção de açúcar (Brasil)", "Safra & produção", "mil t", None, "unit", "conab", "eventual", 1),
+    ("etanol_producao", "Produção de etanol (Brasil)", "Safra & produção", "mil L", None, "unit", "conab", "eventual", 1),
+    ("cana_atr_medio", "ATR médio (Brasil)", "Safra & produção", "kg/t", None, "unit", "conab", "eventual", 0),
     ("paridade_etanol", "Paridade etanol/gasolina", "Etanol", "%", None, "unit", "anp", "weekly", 0),
 ]
 

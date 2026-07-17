@@ -1,8 +1,15 @@
-"""Coletor de noticias por RSS — radar de manchetes do setor.
+"""Coletor de notícias por RSS — radar de manchetes do setor.
 
-Le os feeds dos portais, filtra o que e do setor, detecta empresa/tema no
-titulo e grava TITULO + LINK + DATA. Nao copia o texto das materias (isso
-seria republicacao); a plataforma leva voce a fonte.
+O que faz: lê os feeds RSS dos portais do setor, filtra o que é relevante
+(cana, açúcar, etanol, usinas...), detecta empresa e tema mencionados no título,
+e grava título + link + data.
+
+O que NÃO faz (de propósito): não copia o texto das matérias. RSS entrega
+manchete e link; reproduzir o conteúdo dos veículos seria republicação. A
+plataforma funciona como radar: mostra o que saiu e leva você à fonte.
+
+Feeds: como cada portal usa um caminho diferente (e alguns mudam), tentamos
+uma lista de candidatos por veículo e usamos o primeiro que responder.
 """
 
 from __future__ import annotations
@@ -23,7 +30,10 @@ from src.persistence.repositories import log_run
 
 SOURCE_CODE = "rss"
 
-FEEDS = [
+# (código da fonte na plataforma, nome, [urls candidatas de feed])
+# (code da fonte, nome, urls candidatas). Nem todo portal publica RSS — os que
+# não responderem são simplesmente pulados (o coletor não falha por isso).
+FEEDS: list[tuple[str, str, list[str]]] = [
     ("jornalcana", "JornalCana", [
         "https://jornalcana.com.br/feed/",
         "https://jornalcana.com.br/feed",
@@ -38,7 +48,7 @@ FEEDS = [
         "https://epbr.com.br/feed/",
         "https://epbr.com.br/categoria/biocombustiveis/feed/",
     ]),
-    ("noticiasagricolas", "Noticias Agricolas", [
+    ("noticiasagricolas", "Notícias Agrícolas", [
         "https://www.noticiasagricolas.com.br/rss/noticias/sucroenergetico.xml",
         "https://www.noticiasagricolas.com.br/rss/sucroenergetico.xml",
         "https://www.noticiasagricolas.com.br/feed",
@@ -49,98 +59,116 @@ FEEDS = [
     ]),
 ]
 
+# Google Notícias: feed público de busca. Cobre dezenas de veículos (inclusive os
+# que não têm RSS próprio). O link passa pelo Google e redireciona para a fonte.
+_GN = "https://news.google.com/rss/search?q={q}&hl=pt-BR&gl=BR&ceid=BR:pt-150"
+BUSCAS_GOOGLE = [
+    "usina+de+cana+OR+etanol+OR+açúcar+OR+sucroenergético",
+    "Raízen+OR+%22São+Martinho%22+OR+%22Jalles+Machado%22+OR+Adecoagro+OR+Cosan+usina",
+]
+FEEDS += [("google_news", "Google Notícias", [_GN.format(q=q)]) for q in BUSCAS_GOOGLE]
+
+# Só interessa o que é do setor (feeds gerais trazem muita coisa de fora).
 PALAVRAS_SETOR = (
-    "cana", "a\u00e7\u00facar", "acucar", "etanol", "sucroenerg", "usina", "biocombust",
+    "cana", "açúcar", "acucar", "etanol", "sucroenerg", "usina", "biocombust",
     "cbio", "renovabio", "moagem", "atr", "biometano", "hidratado", "anidro",
     "safra", "canavi", "bioeletric", "sucroalcool",
 )
 
+# empresa mencionada no título -> code da empresa na plataforma
 EMPRESAS_NO_TITULO = {
-    "ra\u00edzen": "raizen", "raizen": "raizen",
-    "s\u00e3o martinho": "sao_martinho", "sao martinho": "sao_martinho",
+    "raízen": "raizen", "raizen": "raizen",
+    "são martinho": "sao_martinho", "sao martinho": "sao_martinho",
     "jalles": "jalles",
     "adecoagro": "adecoagro",
     "cosan": "cosan",
     "ctc": "ctc",
 }
 
+# tema mencionado -> code do tópico (precisa existir em news_topics)
 TEMAS_NO_TITULO = {
-    "produ\u00e7\u00e3o": "producao_safra", "producao": "producao_safra",
+    "produção": "producao_safra", "producao": "producao_safra",
     "safra": "producao_safra", "moagem": "producao_safra", "colheita": "producao_safra",
     "cbio": "renovabio", "renovabio": "renovabio",
-    "anp": "regulacao", "regula\u00e7": "regulacao", "lei": "regulacao", "mistura": "regulacao",
-    "cra": "captacoes", "deb\u00eanture": "captacoes", "emiss\u00e3o": "captacoes",
-    "capta\u00e7": "captacoes", "ipo": "captacoes",
+    "anp": "regulacao", "regulaç": "regulacao", "lei": "regulacao", "mistura": "regulacao",
+    "cra": "captacoes", "debênture": "captacoes", "emissão": "captacoes",
+    "captaç": "captacoes", "ipo": "captacoes",
     "exporta": "comex", "importa": "comex", "embarque": "comex",
-    "biometano": "biometano", "biog\u00e1s": "biometano", "biogas": "biometano",
+    "biometano": "biometano", "biogás": "biometano", "biogas": "biometano",
 }
 
 
-def _texto(el, *nomes):
+def _texto(el, *nomes: str) -> str:
+    """Primeiro dos nomes que existir no elemento (trata namespaces do Atom)."""
     for n in nomes:
         achado = el.find(n)
         if achado is not None:
             if achado.text:
                 return achado.text.strip()
-            href = achado.get("href")
+            href = achado.get("href")  # Atom usa <link href="...">
             if href:
                 return href.strip()
     return ""
 
 
-def _data(txt):
+def _data(txt: str) -> date | None:
     if not txt:
         return None
-    try:
+    try:  # RSS: "Fri, 10 Jul 2026 14:03:00 -0300"
         return parsedate_to_datetime(txt).date()
     except (TypeError, ValueError):
         pass
-    try:
+    try:  # Atom: "2026-07-10T14:03:00Z"
         return datetime.fromisoformat(txt.replace("Z", "+00:00")).date()
     except ValueError:
         return None
 
 
+# Ruído: assuntos que citam o setor mas não servem para inteligência de mercado
+# (o Google Notícias traz de tudo — vagas, eventos, promoções).
 PALAVRAS_RUIDO = (
-    "vaga", "emprego", "contrata", "curr\u00edculo", "curriculo", "sele\u00e7\u00e3o", "seletivo",
-    "concurso", "est\u00e1gio", "estagio", "trainee", "sal\u00e1rio", "salario",
-    "carreata", "sorteio", "promo\u00e7\u00e3o", "promocao", "curso", "inscri\u00e7", "inscric",
-    "webinar", "palestra", "anivers\u00e1rio", "aniversario", "homenage",
-    "receita de", "como fazer", "hor\u00f3scopo", "novela",
+    "vaga", "emprego", "contrata", "currículo", "curriculo", "seleção", "seletivo",
+    "concurso", "estágio", "estagio", "trainee", "salário", "salario",
+    "carreata", "sorteio", "promoção", "promocao", "curso", "inscriç", "inscric",
+    "webinar", "palestra", "aniversário", "aniversario", "homenage",
+    "receita de", "como fazer", "horóscopo", "novela",
 )
 
 
-def _ruido(titulo):
+def _ruido(titulo: str) -> bool:
     t = titulo.lower()
     return any(p in t for p in PALAVRAS_RUIDO)
 
 
-def _relevante(titulo):
+def _relevante(titulo: str) -> bool:
     """Do setor se cita tema OU uma empresa acompanhada.
 
-    Sem a 2a regra, 'Sao Martinho emite CRA' seria descartada — e e justamente
-    o tipo de noticia que interessa para credito.
+    Sem a segunda regra, 'São Martinho emite CRA de R$ 1,2 bi' seria descartada
+    (não tem 'cana'/'etanol' no título) — e é justamente o tipo de notícia que
+    interessa para crédito.
     """
     if _ruido(titulo):
-        return False
+        return False  # vaga de emprego, evento, curso... não é inteligência
     t = titulo.lower()
     if any(p in t for p in PALAVRAS_SETOR):
         return True
     return any(termo in t for termo in EMPRESAS_NO_TITULO)
 
 
-def parse_feed(xml_bytes, source_code):
+def parse_feed(xml_bytes: bytes, source_code: str) -> list[dict]:
     """Extrai as manchetes de um feed RSS ou Atom."""
     try:
         raiz = ET.fromstring(xml_bytes)
     except ET.ParseError:
         return []
-    artigos = []
-    for it in raiz.iter("item"):
+    itens = raiz.iter("item")  # RSS 2.0
+    artigos: list[dict] = []
+    for it in itens:
         titulo = _texto(it, "title")
         link = _texto(it, "link", "guid")
         if not titulo or not link or not _relevante(titulo):
             continue
+        # O Google Notícias formata o título como "Título - Veículo".
         veiculo = _texto(it, "source")
         if veiculo and titulo.endswith(f" - {veiculo}"):
             titulo = titulo[: -len(f" - {veiculo}")]
@@ -153,6 +181,7 @@ def parse_feed(xml_bytes, source_code):
         })
     if artigos:
         return artigos
+    # Atom (usa namespace)
     ns = {"a": "http://www.w3.org/2005/Atom"}
     for e in raiz.findall("a:entry", ns):
         titulo = _texto(e, "a:title")
@@ -170,22 +199,23 @@ def parse_feed(xml_bytes, source_code):
     return artigos
 
 
-def detecta_empresas(titulo):
+def detecta_empresas(titulo: str) -> list[str]:
     t = titulo.lower()
     return sorted({code for termo, code in EMPRESAS_NO_TITULO.items() if termo in t})
 
 
-def detecta_temas(titulo):
+def detecta_temas(titulo: str) -> list[str]:
     t = titulo.lower()
     return sorted({code for termo, code in TEMAS_NO_TITULO.items() if termo in t})
 
 
-def upsert_noticias(artigos):
-    """Grava as noticias (idempotente pela url) + mencoes e temas."""
+def upsert_noticias(artigos: list[dict]) -> int:
+    """Grava as notícias (idempotente pela url) + menções e temas."""
     eng = get_engine()
     agora = datetime.utcnow()
     novos = 0
     with eng.begin() as conn:
+        # tópicos existentes (para não violar chave estrangeira)
         topicos_ok = {r[0] for r in conn.execute(text("SELECT code FROM news_topics"))}
         empresas_ok = {r[0] for r in conn.execute(text("SELECT code FROM companies"))}
         for a in artigos:
@@ -194,7 +224,7 @@ def upsert_noticias(artigos):
                 text("SELECT id FROM news_articles WHERE url_canonica = :u"), {"u": url}
             ).first()
             if existe:
-                continue
+                continue  # já temos esta notícia
             aid = uuid.uuid4().hex
             h = hashlib.sha256(url.encode()).hexdigest()[:32]
             conn.execute(
@@ -227,10 +257,9 @@ class RssNoticiasCollector:
     source_code = SOURCE_CODE
     version = "0.1.0"
 
-    def collect(self):
-        artigos = []
+    def collect(self) -> list[dict]:
+        artigos: list[dict] = []
         for code, nome, urls in FEEDS:
-            achou = False
             for url in urls:
                 try:
                     resp = httpx.get(
@@ -242,15 +271,14 @@ class RssNoticiasCollector:
                     if achados:
                         artigos.extend(achados)
                         print(f"  {nome}: {len(achados)} manchetes")
-                        achou = True
-                        break
-                except Exception:
+                        break  # este veículo respondeu; vai para o próximo
+                except Exception:  # noqa: BLE001 — um feed fora do ar não derruba os outros
                     continue
-            if not achou:
+            else:
                 print(f"  {nome}: nenhum feed respondeu")
         return artigos
 
-    def run(self):
+    def run(self) -> CollectorResult:
         started = datetime.utcnow()
         try:
             artigos = self.collect()
@@ -260,7 +288,7 @@ class RssNoticiasCollector:
                 finished_at=datetime.utcnow(), rows_seen=len(artigos),
                 rows_new=novos, ok=True,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             result = CollectorResult(
                 source_code=self.source_code, started_at=started,
                 finished_at=datetime.utcnow(), ok=False,
@@ -268,11 +296,3 @@ class RssNoticiasCollector:
             )
         log_run(result)
         return result
-
-
-_GN = "https://news.google.com/rss/search?q={q}&hl=pt-BR&gl=BR&ceid=BR:pt-150"
-BUSCAS_GOOGLE = [
-    "usina+de+cana+OR+etanol+OR+a\u00e7\u00facar+OR+sucroenerg\u00e9tico",
-    "Ra\u00edzen+OR+%22S\u00e3o+Martinho%22+OR+%22Jalles+Machado%22+OR+Adecoagro+OR+Cosan+usina",
-]
-FEEDS += [("google_news", "Google Noticias", [_GN.format(q=q)]) for q in BUSCAS_GOOGLE]
