@@ -75,6 +75,28 @@ conteudo = st.text_area(
     placeholder="Escreva aqui sua anotação...",
 )
 
+# ── colar imagem (print) ─────────────────────────────────────────────────
+# copie um print (ou imagem) e clique no botão para anexar.
+import base64
+from io import BytesIO
+
+try:
+    from streamlit_paste_button import paste_image_button
+    _tem_paste = True
+except ImportError:
+    _tem_paste = False
+
+imagem_b64 = None
+if _tem_paste:
+    resultado = paste_image_button("📋 Colar imagem (print)", key="anot_paste")
+    if resultado is not None and resultado.image_data is not None:
+        buf = BytesIO()
+        resultado.image_data.save(buf, format="PNG")
+        imagem_b64 = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+        st.image(resultado.image_data, caption="Imagem a anexar", width=320)
+else:
+    st.caption("Para colar imagens, o componente de colagem precisa estar instalado.")
+
 col_salvar, col_cancelar, _ = st.columns([1, 1, 4])
 with col_salvar:
     if st.button("Salvar", type="primary", width="stretch"):
@@ -83,11 +105,11 @@ with col_salvar:
         else:
             titulo_final = titulo.strip() or "(sem título)"
             if editando:
-                atualizar_anotacao(editando["id"], titulo_final, conteudo)
+                atualizar_anotacao(editando["id"], titulo_final, conteudo, imagem_b64)
                 st.session_state.pop("anot_editando", None)
                 st.success("Anotação atualizada.")
             else:
-                criar_anotacao(titulo_final, conteudo)
+                criar_anotacao(titulo_final, conteudo, imagem_b64)
                 st.success("Anotação salva.")
             # limpa os campos e recarrega
             st.session_state.pop("anot_titulo", None)
@@ -125,6 +147,10 @@ else:
                 f"</div>",
                 unsafe_allow_html=True,
             )
+            # mostra a imagem anexada, se houver
+            img = r["imagem"] if "imagem" in r else None
+            if img is not None and str(img).startswith("data:image"):
+                st.image(img, width=420)
             c_edit, c_del, _ = st.columns([1, 1, 6])
             with c_edit:
                 if st.button("Editar", key=f"edit_{r['id']}", width="stretch"):
