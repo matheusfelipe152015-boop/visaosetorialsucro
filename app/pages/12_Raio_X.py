@@ -41,6 +41,7 @@ from src.raiox import (
     normalize_base,
     salvar_comentario,
 )
+from src.raiox_abas import estilizar
 from src.theme import apply_theme
 
 st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Raio X", page_icon="⬡", layout="wide")
@@ -178,7 +179,8 @@ with abas[0]:
         )
         if not por_faixa.empty:
             fig = px.bar(por_faixa, x="bucket_rating", y="risco",
-                         labels={"bucket_rating": "Faixa", "risco": "Risco (R$)"})
+                         labels={"bucket_rating": "Faixa", "risco": "Risco (R$)"},
+                         color_discrete_sequence=["#14573A"])
             st.plotly_chart(fig, width="stretch")
 
 # --- Dashboard ---
@@ -190,7 +192,8 @@ with abas[1]:
     )
     if not por_setor.empty:
         fig = px.bar(por_setor, x="risco", y="setor_gerencial", orientation="h",
-                     labels={"risco": "Risco (R$)", "setor_gerencial": "Setor"})
+                     labels={"risco": "Risco (R$)", "setor_gerencial": "Setor"},
+                     color_discrete_sequence=["#14573A"])
         fig.update_layout(yaxis={"categoryorder": "total ascending"})
         st.plotly_chart(fig, width="stretch")
 
@@ -282,11 +285,11 @@ with abas[4]:
         t = table_top_bucket(base, faixa)
         if not t.empty:
             st.markdown(f"**Top 10 por limite · {faixa}**")
-            st.dataframe(t, width="stretch", hide_index=True)
+            st.dataframe(estilizar(t), width="stretch", hide_index=True)
     t_b2 = table_b2_ou_pior(base)
     if not t_b2.empty:
         st.markdown("**Top 10 por risco · B2 ou pior**")
-        st.dataframe(t_b2, width="stretch", hide_index=True)
+        st.dataframe(estilizar(t_b2), width="stretch", hide_index=True)
 
 # --- Movimentações (aba 5) ---
 with abas[5]:
@@ -314,7 +317,7 @@ with abas[5]:
             if tb.empty:
                 st.caption("Nenhum registro nesta categoria.")
             else:
-                st.dataframe(tb, width="stretch", hide_index=True)
+                st.dataframe(estilizar(tb), width="stretch", hide_index=True)
 
 # --- Próximos Vencimentos (aba 6) ---
 with abas[6]:
@@ -332,7 +335,8 @@ with abas[6]:
         venc = venc.copy()
         venc["Período"] = venc["Mês"].map(meses) + "/" + venc["Ano"].astype(str)
         fig = _px.bar(venc, x="Período", y="Risco (R$ mm)",
-                      hover_data=["Grupos"], labels={"Risco (R$ mm)": "Risco (R$ mm)"})
+                      hover_data=["Grupos"], labels={"Risco (R$ mm)": "Risco (R$ mm)"},
+                      color_discrete_sequence=["#14573A"])
         st.plotly_chart(fig, width="stretch")
         st.dataframe(venc[["Ano", "Mês", "Grupos", "Risco (R$ mm)"]],
                      width="stretch", hide_index=True)
@@ -346,10 +350,11 @@ with abas[7]:
         st.info("A base carregada não tem data de visita (ou não tem analista), "
                 "então não dá para medir a cobertura de visitas.")
     else:
-        st.dataframe(vis, width="stretch", hide_index=True)
+        st.dataframe(estilizar(vis), width="stretch", hide_index=True)
         import plotly.express as _px2
         fig = _px2.bar(vis, x="Analista", y=["Com visita", "Sem visita"],
-                       barmode="stack", labels={"value": "Clientes", "variable": ""})
+                       barmode="stack", labels={"value": "Clientes", "variable": ""},
+                       color_discrete_sequence=["#14573A", "#C6881C"])
         st.plotly_chart(fig, width="stretch")
 
 # --- Clientes (aba 8) ---
@@ -360,7 +365,7 @@ with abas[8]:
     if resumo_cli.empty:
         st.info("A base carregada não tem a coluna de analista.")
     else:
-        st.dataframe(resumo_cli, width="stretch", hide_index=True)
+        st.dataframe(estilizar(resumo_cli), width="stretch", hide_index=True)
         st.markdown("**Ver clientes de um analista**")
         analista_sel = st.selectbox("Analista", resumo_cli["Analista"].tolist(),
                                     key="cli_analista")
@@ -388,7 +393,7 @@ with abas[9]:
         c1.metric("Tipos de pendência", f"{int((resumo_q['Qtd'] > 0).sum())}")
         c2.metric("Ocorrências", f"{int(resumo_q['Qtd'].sum())}")
         c3.metric("Risco envolvido", _fmt_mm(resumo_q['Risco (R$ mm)'].sum() * 1_000_000))
-        st.dataframe(resumo_q, width="stretch", hide_index=True)
+        st.dataframe(estilizar(resumo_q), width="stretch", hide_index=True)
         st.markdown("**Ver clientes de uma pendência**")
         pend = st.selectbox("Pendência", resumo_q["Pendência"].tolist(), key="q_pend")
         det = detalhes_q.get(pend, None)

@@ -225,3 +225,73 @@ def cobertura_visitas(df: pd.DataFrame) -> pd.DataFrame:
     resumo["Risco (R$ mm)"] = resumo["Risco"].apply(_mm)
     return resumo.rename(columns={"analista": "Analista", "Com_visita": "Com visita"})[
         ["Analista", "Clientes", "Com visita", "Sem visita", "Risco (R$ mm)"]]
+
+
+# ── estilo das tabelas (deixa bonito) ─────────────────────────────────────
+
+# cores harmonizadas com a plataforma (verde cana)
+_VERDE = "#14573A"
+_VERDE_CLARO = "#EAF2ED"
+_AMBAR = "#C6881C"
+_TINTA = "#18241F"
+_LINHA_TOTAL = "#F3EFE4"
+
+_ROTULOS_TOTAL = {"total exibido", "delta", "total carteira"}
+
+
+def _e_linha_total(nome: str) -> bool:
+    n = str(nome).strip().lower()
+    return any(n.startswith(r) for r in _ROTULOS_TOTAL)
+
+
+def _fmt_num_br(v, casas: int = 1) -> str:
+    """Número no padrão brasileiro: 1.234,5 (sem notação científica)."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "–"
+    try:
+        s = f"{float(v):,.{casas}f}"
+        return s.replace(",", "X").replace(".", ",").replace("X", ".")
+    except (ValueError, TypeError):
+        return str(v)
+
+
+def estilizar(df: pd.DataFrame):
+    """Devolve um Styler bonito: números BR, linhas de total destacadas, cores.
+
+    Use com st.dataframe(estilizar(tabela), ...). Se algo falhar, devolve o df cru.
+    """
+    if df is None or df.empty:
+        return df
+    try:
+        # formata colunas numéricas no padrão brasileiro
+        formatos = {}
+        for col in df.columns:
+            cl = str(col).lower()
+            if any(t in cl for t in ["r$", "mm", "limite", "risco", "delta", "%", "notch"]):
+                casas = 2 if "%" in cl else 1
+                formatos[col] = lambda v, c=casas: _fmt_num_br(v, c)
+
+        sty = df.style.format(formatos, na_rep="–")
+
+        # destaca as linhas de total/delta (primeira coluna costuma ser "Grupo")
+        primeira = df.columns[0]
+
+        def _destacar(row):
+            if _e_linha_total(row.get(primeira, "")):
+                return [f"background-color:{_LINHA_TOTAL}; font-weight:700; "
+                        f"color:{_VERDE}"] * len(row)
+            return [""] * len(row)
+
+        sty = sty.apply(_destacar, axis=1)
+
+        # cabeçalho verde
+        sty = sty.set_table_styles([
+            {"selector": "th",
+             "props": [("background-color", _VERDE), ("color", "white"),
+                       ("font-weight", "600"), ("text-align", "left"),
+                       ("padding", "8px 10px")]},
+            {"selector": "td", "props": [("padding", "7px 10px")]},
+        ])
+        return sty
+    except Exception:  # noqa: BLE001 — se estilizar falhar, mostra a tabela crua
+        return df
