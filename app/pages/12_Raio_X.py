@@ -257,7 +257,20 @@ with abas[3]:
     dep_salvo = carregar_depara()
     if not dep_salvo.empty:
         st.markdown(f"**De-para salvo · {len(dep_salvo)} clientes**")
-        st.dataframe(dep_salvo, width="stretch", hide_index=True)
+        # enriquece: mostra o analista EFETIVO (o da base quando o de-para está vazio)
+        tabela = dep_salvo.copy()
+        tabela["id_cliente"] = tabela["id_cliente"].astype(str).str.strip()
+        tabela = tabela.rename(columns={"analista": "analista_dep"})
+        analista_base = base[["id", "analista"]].copy()
+        analista_base["id"] = analista_base["id"].astype(str).str.strip()
+        analista_base = analista_base.rename(columns={"analista": "analista_base"})
+        tabela = tabela.merge(analista_base, left_on="id_cliente", right_on="id", how="left")
+        # analista efetivo: o do de-para se preenchido, senão o da base
+        dep_txt = tabela["analista_dep"].fillna("").astype(str).str.strip()
+        dep_vazio = dep_txt.str.lower().isin(["", "none", "nan", "null"])
+        tabela["analista"] = tabela["analista_base"].where(dep_vazio, tabela["analista_dep"])
+        tabela = tabela[["id_cliente", "grupo", "analista", "setor_gerencial", "ativo"]]
+        st.dataframe(tabela, width="stretch", hide_index=True)
 
 # --- abas ainda em construção ---
 _em_construcao = {

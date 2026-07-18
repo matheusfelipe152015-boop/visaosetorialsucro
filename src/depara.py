@@ -97,7 +97,7 @@ def salvar_linha_depara(id_cliente: str, analista: str, setor: str,
 
 def _valor_real(serie: pd.Series) -> pd.Series:
     """Marca como NaN os 'vazios disfarçados' (None, '', 'nan', 'none')."""
-    limpa = serie.astype(str).str.strip()
+    limpa = serie.fillna("").astype(str).str.strip()
     vazio = limpa.str.lower().isin(["", "none", "nan", "null"])
     return serie.where(~vazio)
 
