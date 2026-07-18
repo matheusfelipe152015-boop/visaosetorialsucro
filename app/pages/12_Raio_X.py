@@ -20,6 +20,7 @@ if _r not in _sys.path:
     _sys.path.insert(0, _r)
 
 
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 
@@ -273,11 +274,182 @@ with abas[3]:
         st.dataframe(tabela, width="stretch", hide_index=True)
 
 # --- abas ainda em construção ---
-_em_construcao = {
-    4: "Tabelas de Rating", 5: "Movimentações", 6: "Próximos Vencimentos",
-    7: "Visitas", 8: "Clientes", 9: "Qualidade", 10: "Comparação M-1",
-    11: "Exportar PDF",
-}
-for idx, nome in _em_construcao.items():
-    with abas[idx]:
-        st.info(f"A aba **{nome}** será adicionada na próxima fase da integração.")
+# --- Tabelas de Rating (aba 4) ---
+with abas[4]:
+    from src.raiox_abas import table_b2_ou_pior, table_top_bucket
+    st.markdown("##### Tabelas por faixa de rating")
+    for faixa in BUCKET_ORDER:
+        t = table_top_bucket(base, faixa)
+        if not t.empty:
+            st.markdown(f"**Top 10 por limite · {faixa}**")
+            st.dataframe(t, width="stretch", hide_index=True)
+    t_b2 = table_b2_ou_pior(base)
+    if not t_b2.empty:
+        st.markdown("**Top 10 por risco · B2 ou pior**")
+        st.dataframe(t_b2, width="stretch", hide_index=True)
+
+# --- Movimentações (aba 5) ---
+with abas[5]:
+    from src.raiox_abas import (
+        movement_available,
+        table_movement,
+        table_rating_movement,
+    )
+    st.markdown("##### Movimentações do mês")
+    if not movement_available(base):
+        st.info("A base carregada não tem colunas de comparação com o mês anterior "
+                "(delta de limite, risco e rating). As movimentações aparecem quando "
+                "a planilha traz esses dados de M-1.")
+    else:
+        blocos = [
+            ("Aumento de limite · Top 10", table_movement(base, "limite", "up")),
+            ("Redução de limite · Top 10", table_movement(base, "limite", "down")),
+            ("Aumento de risco · Top 10", table_movement(base, "risco", "up")),
+            ("Redução de risco · Top 10", table_movement(base, "risco", "down")),
+            ("Upgrades de rating", table_rating_movement(base, "upgrade")),
+            ("Downgrades de rating", table_rating_movement(base, "downgrade")),
+        ]
+        for titulo, tb in blocos:
+            st.markdown(f"**{titulo}**")
+            if tb.empty:
+                st.caption("Nenhum registro nesta categoria.")
+            else:
+                st.dataframe(tb, width="stretch", hide_index=True)
+
+# --- Próximos Vencimentos (aba 6) ---
+with abas[6]:
+    import plotly.express as _px
+
+    from src.raiox_abas import tabela_vencimentos
+    st.markdown("##### Próximos vencimentos de limite")
+    venc = tabela_vencimentos(base)
+    if venc.empty:
+        st.info("A base carregada não tem a data de vencimento de limite, ou "
+                "nenhuma data válida foi encontrada.")
+    else:
+        meses = {1: "jan", 2: "fev", 3: "mar", 4: "abr", 5: "mai", 6: "jun",
+                 7: "jul", 8: "ago", 9: "set", 10: "out", 11: "nov", 12: "dez"}
+        venc = venc.copy()
+        venc["Período"] = venc["Mês"].map(meses) + "/" + venc["Ano"].astype(str)
+        fig = _px.bar(venc, x="Período", y="Risco (R$ mm)",
+                      hover_data=["Grupos"], labels={"Risco (R$ mm)": "Risco (R$ mm)"})
+        st.plotly_chart(fig, width="stretch")
+        st.dataframe(venc[["Ano", "Mês", "Grupos", "Risco (R$ mm)"]],
+                     width="stretch", hide_index=True)
+
+# --- Visitas (aba 7) ---
+with abas[7]:
+    from src.raiox_abas import cobertura_visitas
+    st.markdown("##### Cobertura de visitas por analista")
+    vis = cobertura_visitas(base)
+    if vis.empty:
+        st.info("A base carregada não tem data de visita (ou não tem analista), "
+                "então não dá para medir a cobertura de visitas.")
+    else:
+        st.dataframe(vis, width="stretch", hide_index=True)
+        import plotly.express as _px2
+        fig = _px2.bar(vis, x="Analista", y=["Com visita", "Sem visita"],
+                       barmode="stack", labels={"value": "Clientes", "variable": ""})
+        st.plotly_chart(fig, width="stretch")
+
+# --- Clientes (aba 8) ---
+with abas[8]:
+    from src.raiox_abas import clientes_por_analista
+    st.markdown("##### Clientes por analista")
+    resumo_cli = clientes_por_analista(base)
+    if resumo_cli.empty:
+        st.info("A base carregada não tem a coluna de analista.")
+    else:
+        st.dataframe(resumo_cli, width="stretch", hide_index=True)
+        st.markdown("**Ver clientes de um analista**")
+        analista_sel = st.selectbox("Analista", resumo_cli["Analista"].tolist(),
+                                    key="cli_analista")
+        det = base[base["analista"].astype(str) == str(analista_sel)].copy()
+        det = det.sort_values("risco", ascending=False)
+        cols = [c for c in ["id", "grupo", "setor_gerencial", "rating",
+                            "limite", "risco", "disponibilidade", "data_visita",
+                            "status", "comentario"] if c in det.columns]
+        mostra = det[cols].rename(columns={
+            "id": "ID", "grupo": "Grupo", "setor_gerencial": "Setor",
+            "rating": "Rating", "limite": "Limite", "risco": "Risco",
+            "disponibilidade": "Disponível", "data_visita": "Data visita",
+            "status": "Status", "comentario": "Comentário"})
+        st.dataframe(mostra, width="stretch", hide_index=True)
+
+# --- Qualidade (aba 9) ---
+with abas[9]:
+    from src.raiox_abas import build_qualidade
+    st.markdown("##### Qualidade / Pendências")
+    resumo_q, detalhes_q = build_qualidade(base)
+    if resumo_q.empty:
+        st.info("Nenhuma checagem de qualidade disponível para esta base.")
+    else:
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Tipos de pendência", f"{int((resumo_q['Qtd'] > 0).sum())}")
+        c2.metric("Ocorrências", f"{int(resumo_q['Qtd'].sum())}")
+        c3.metric("Risco envolvido", _fmt_mm(resumo_q['Risco (R$ mm)'].sum() * 1_000_000))
+        st.dataframe(resumo_q, width="stretch", hide_index=True)
+        st.markdown("**Ver clientes de uma pendência**")
+        pend = st.selectbox("Pendência", resumo_q["Pendência"].tolist(), key="q_pend")
+        det = detalhes_q.get(pend, None)
+        if det is not None and not det.empty:
+            st.dataframe(det.rename(columns={
+                "id": "ID", "grupo": "Grupo", "analista": "Analista",
+                "setor_gerencial": "Setor", "rating": "Rating",
+                "limite": "Limite", "risco": "Risco", "data_visita": "Data visita"}),
+                width="stretch", hide_index=True)
+        else:
+            st.caption("Nenhum cliente nesta pendência.")
+
+# --- Comparação M-1 (aba 10) ---
+with abas[10]:
+    from src.raiox_abas import movement_available
+    st.markdown("##### Comparação com o mês anterior (M-1)")
+    if not movement_available(base):
+        st.info("A base carregada não traz as colunas de M-1 (limite, risco e "
+                "rating do mês anterior). Quando a planilha tiver esses dados, "
+                "esta aba mostra a evolução automaticamente.")
+    else:
+        lim_atual = base["limite"].sum()
+        lim_ant = base["limite_m1"].sum() if "limite_m1" in base.columns else 0
+        ris_atual = base["risco"].sum()
+        ris_ant = base["risco_m1"].sum() if "risco_m1" in base.columns else 0
+        c1, c2 = st.columns(2)
+        c1.metric("Limite total", _fmt_mm(lim_atual),
+                  _fmt_mm(lim_atual - lim_ant), delta_color="normal")
+        c2.metric("Risco total", _fmt_mm(ris_atual),
+                  _fmt_mm(ris_atual - ris_ant), delta_color="inverse")
+        # quem mais mudou
+        st.markdown("**Maiores variações de risco no mês**")
+        if "delta_risco" in base.columns:
+            var = base[["grupo", "rating", "delta_risco", "risco"]].copy()
+            var = var[var["delta_risco"].abs() > 0].sort_values(
+                "delta_risco", key=abs, ascending=False).head(15)
+            var["delta_risco"] = var["delta_risco"] / 1_000_000
+            var["risco"] = var["risco"] / 1_000_000
+            st.dataframe(var.rename(columns={
+                "grupo": "Grupo", "rating": "Rating",
+                "delta_risco": "Δ Risco (R$ mm)", "risco": "Risco (R$ mm)"}),
+                width="stretch", hide_index=True)
+
+# --- Exportar (aba 11) ---
+with abas[11]:
+    import io as _io
+    st.markdown("##### Exportar a carteira")
+    st.caption("Baixe a carteira atual (com de-para e comentários já aplicados) "
+               "em Excel, para guardar ou compartilhar.")
+    buf = _io.BytesIO()
+    cols_exp = [c for c in ["id", "grupo", "analista", "setor_gerencial", "rating",
+                            "bucket_rating", "limite", "risco", "disponibilidade",
+                            "data_visita", "status", "comentario"] if c in base.columns]
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        base[cols_exp].to_excel(writer, index=False, sheet_name="Carteira")
+    st.download_button(
+        "📥 Baixar carteira em Excel",
+        data=buf.getvalue(),
+        file_name="carteira_raio_x.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type="primary",
+    )
+    st.caption("A exportação em PDF (relatório formatado) pode ser adicionada "
+               "numa próxima fase.")
