@@ -232,6 +232,9 @@ with abas[3]:
                 st.rerun()
 
     st.markdown("**Editar um cliente**")
+    st.caption("O analista e o setor já vêm preenchidos com o que está na base. "
+               "Se você mudar aqui, o de-para passa a valer para esse cliente. "
+               "Se deixar como está, continua o da base.")
     grupos_dep = base[["id", "grupo"]].drop_duplicates().sort_values("grupo")
     rot_dep = {f'{r["grupo"]} (ID {r["id"]})': r["id"] for _, r in grupos_dep.iterrows()}
     if rot_dep:
@@ -240,7 +243,8 @@ with abas[3]:
         linha = base[base["id"] == cid].iloc[0]
         col_a, col_b = st.columns(2)
         with col_a:
-            novo_analista = st.text_input("Analista", value=str(linha.get("analista", "") or ""))
+            novo_analista = st.text_input("Analista", value=str(linha.get("analista", "") or ""),
+                                          help="Vem da base. Edite só se quiser sobrescrever.")
         with col_b:
             novo_setor = st.text_input("Setor gerencial",
                                        value=str(linha.get("setor_gerencial", "") or ""))

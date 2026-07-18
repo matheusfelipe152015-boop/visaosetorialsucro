@@ -57,3 +57,37 @@ def test_sim_nao_interpretacao():
     assert _sim_nao_para_int("Sim") == 1
     assert _sim_nao_para_int("") == 1
     assert _sim_nao_para_int(1) == 1
+
+
+def test_analista_vazio_no_depara_mantem_o_da_base():
+    """Se o de-para tem analista vazio, o analista da BASE prevalece."""
+    from src.depara import aplicar_depara, salvar_linha_depara
+    from src.raiox import normalize_base
+    # de-para: setor preenchido, analista vazio
+    salvar_linha_depara("500", "", "Setor Novo", 1, "tester")
+    df = pd.DataFrame({
+        "ID": [500], "Nome do grupo": ["X"],
+        "Analista Podicre": ["Analista da Base"],
+        "Agrupamento Setor Gerencial": ["Setor Antigo"],
+        "Risco Mês Atual Podicre": [100], "Limite mês Atual Podicre": [100],
+    })
+    base = normalize_base(df)
+    out = aplicar_depara(base)
+    linha = out[out["id"] == "500"].iloc[0]
+    assert linha["analista"] == "Analista da Base"   # veio da base
+    assert linha["setor_gerencial"] == "Setor Novo"  # veio do de-para
+
+
+def test_analista_preenchido_no_depara_sobrescreve():
+    """Se o de-para tem analista preenchido, ele sobrescreve o da base."""
+    from src.depara import aplicar_depara, salvar_linha_depara
+    from src.raiox import normalize_base
+    salvar_linha_depara("501", "Analista Editado", "Setor X", 1, "tester")
+    df = pd.DataFrame({
+        "ID": [501], "Nome do grupo": ["Y"],
+        "Analista Podicre": ["Analista da Base"],
+        "Risco Mês Atual Podicre": [100], "Limite mês Atual Podicre": [100],
+    })
+    base = normalize_base(df)
+    out = aplicar_depara(base)
+    assert out[out["id"] == "501"].iloc[0]["analista"] == "Analista Editado"

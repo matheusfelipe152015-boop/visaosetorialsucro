@@ -95,10 +95,19 @@ def salvar_linha_depara(id_cliente: str, analista: str, setor: str,
                 int(ativo), datetime.utcnow(), quem)
 
 
+def _valor_real(serie: pd.Series) -> pd.Series:
+    """Marca como NaN os 'vazios disfarçados' (None, '', 'nan', 'none')."""
+    limpa = serie.astype(str).str.strip()
+    vazio = limpa.str.lower().isin(["", "none", "nan", "null"])
+    return serie.where(~vazio)
+
+
 def aplicar_depara(base: pd.DataFrame) -> pd.DataFrame:
     """Aplica o de-para salvo por cima da carteira (casando por ID).
 
-    Sobrescreve analista e setor gerencial, e remove os clientes inativos.
+    Regra: a BASE manda. O de-para só sobrescreve analista/setor quando tem um
+    valor de verdade preenchido (edição consciente). Vazio no de-para = mantém o
+    que veio da base. Além disso, remove os clientes marcados como inativos.
     """
     dep = carregar_depara()
     if dep.empty:
@@ -110,10 +119,12 @@ def aplicar_depara(base: pd.DataFrame) -> pd.DataFrame:
     out = out.merge(dep, left_on="id", right_on="id_cliente", how="left",
                     suffixes=("", "_dep"))
 
+    # sobrescreve SÓ quando o de-para tem valor real (senão mantém o da base)
     if "analista_dep" in out.columns:
-        out["analista"] = out["analista_dep"].combine_first(out["analista"])
+        out["analista"] = _valor_real(out["analista_dep"]).combine_first(out["analista"])
     if "setor_gerencial_dep" in out.columns:
-        out["setor_gerencial"] = out["setor_gerencial_dep"].combine_first(out["setor_gerencial"])
+        out["setor_gerencial"] = _valor_real(out["setor_gerencial_dep"]).combine_first(
+            out["setor_gerencial"])
 
     # remove inativos (ativo == 0 no de-para)
     if "ativo" in out.columns:
