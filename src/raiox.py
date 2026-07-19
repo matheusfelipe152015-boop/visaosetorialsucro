@@ -88,14 +88,15 @@ PD_RATING_CUTS = [
 COLUMN_OPTIONS = {
     "id": ["ID", "idGrupo", "id_grupo_cliente"],
     "grupo": ["Nome do grupo", "nomeGrupo", "nm_grupo_cliente", "nomegrupo",
-              "des_grupo_consolidado"],
+              "des_grupo_consolidado", "grupo"],
     "analista": ["Analista Podicre", "analista", "Analista 2026", "analistaEsg"],
     "setor_gerencial": ["Agrupamento Setor Gerencial", "setorGerencialPodicre",
-                        "setor", "nm_setor_gerencial"],
-    "limite": ["Limite mês Atual Podicre", "valorLimite", "vl_limite_credito", "Limite"],
+                        "setor", "nm_setor_gerencial", "setor_gerencial"],
+    "limite": ["Limite mês Atual Podicre", "valorLimite", "vl_limite_credito", "Limite",
+               "limite"],
     "risco": ["Risco Mês Atual Podicre", "valorRisco", "Sum of vl_risco_credito",
-              "Risco", "val_risco_itau"],
-    "disponibilidade": ["Disponibilidade", "valorLimiteDisponivel"],
+              "Risco", "val_risco_itau", "risco"],
+    "disponibilidade": ["Disponibilidade", "valorLimiteDisponivel", "disponibilidade"],
     "rating": ["Rating Mês Atual Podicre", "rating", "Rating", "des_rating_consolidado"],
     "rating_num": ["Nº Rating Mês Atual Podicre", "Número Rating"],
     "limite_m1": ["Limite mês Anterior Podicre"],
@@ -106,7 +107,7 @@ COLUMN_OPTIONS = {
     "data_venc_rating": ["Vencimento de rating atual", "dataVencRatingAtual",
                          "dt_vencimento_rating", "Venc rating"],
     "data_visita": ["DataVisita", "dataVisita", "DATA_VISITA", "Data Visita",
-                    "UltimaVisita", "Última Visita"],
+                    "UltimaVisita", "Última Visita", "data_visita"],
     "gerente_oficial": ["Gerente", "gerente", "gerente_oficial"],
     "officer": ["officer", "Officer", "Officer Podicre", "officerPodicre"],
     "diretor_comercial": ["diretorComercial", "Diretor Comercial", "diretor_comercial",
@@ -193,6 +194,18 @@ def normalize_base(df: pd.DataFrame) -> pd.DataFrame:
               "rating_num", "rating_num_m1"]:
         if c in new.columns:
             new[c] = pd.to_numeric(new[c], errors="coerce")
+
+    # detecção de escala: planilhas do banco costumam vir com os valores JÁ em
+    # milhões (ex.: limite 4.116 = R$ 4,1 bi). Internamente padronizamos em
+    # reais. Se a mediana do limite for pequena demais para ser reais, assume
+    # que está em MM e converte.
+    if "limite" in new.columns:
+        mediana = pd.to_numeric(new["limite"], errors="coerce").median()
+        if pd.notna(mediana) and 0 < mediana < 100_000:
+            for c in ["limite", "risco", "disponibilidade", "limite_m1",
+                      "risco_m1"]:
+                if c in new.columns:
+                    new[c] = new[c] * 1_000_000
 
     # rating textual -> numérico
     if "rating_num" not in new.columns or new["rating_num"].isna().all():

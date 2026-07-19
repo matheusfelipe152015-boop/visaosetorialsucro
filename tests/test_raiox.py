@@ -15,7 +15,7 @@ def test_normaliza_planilha_simples():
     })
     out = normalize_base(df)
     assert "grupo" in out.columns
-    assert out["risco"].sum() == 3000
+    assert out["risco"].sum() == 3000 * 1_000_000  # valores pequenos = MM
     assert out["rating_num"].iloc[0] == 4   # Ba1 -> 4
     assert out["bucket_rating"].iloc[0] == "Ba1 - Ba4"
 
@@ -27,7 +27,7 @@ def test_disponibilidade_calculada():
         "Limite mês Atual Podicre": [1000],
     })
     out = normalize_base(df)
-    assert out["disponibilidade"].iloc[0] == 600
+    assert out["disponibilidade"].iloc[0] == 600 * 1_000_000
 
 
 def test_sem_grupo_da_erro():
@@ -134,7 +134,7 @@ def test_le_planilha_colunas_reais(tmp_path):
     raw = ler_carteira_excel(caminho)
     base = normalize_base(raw)
     assert len(base) == 2
-    assert base["risco"].sum() == 80000
+    assert base["risco"].sum() == 80000 * 1_000_000
     assert set(base["analista"]) == {"Ana", "Bruno"}
 
 
@@ -155,7 +155,7 @@ def test_le_planilha_cabecalho_linha_8(tmp_path):
     raw = ler_carteira_excel(caminho)
     base = normalize_base(raw)
     assert len(base) == 1
-    assert base["risco"].sum() == 100
+    assert base["risco"].sum() == 100 * 1_000_000
 
 
 def test_base_teste_salva_carrega_exclui():
@@ -179,3 +179,36 @@ def test_base_teste_salva_carrega_exclui():
     assert len(recuperada) == 2
     excluir_base_teste()
     assert not existe_base_teste()
+
+
+def test_roundtrip_exportacao_reimporta():
+    """A carteira exportada pelo site (nomes internos) é lida de volta."""
+    from src.raiox import normalize_base
+    df = pd.DataFrame({
+        "id": ["10"], "grupo": ["X"], "analista": ["Ana"],
+        "setor_gerencial": ["Sucro"], "limite": [100.0], "risco": [60.0],
+    })
+    base = normalize_base(df)
+    assert base["grupo"].iloc[0] == "X"
+    assert base["analista"].iloc[0] == "Ana"
+
+
+def test_escala_em_milhoes_detectada():
+    """Planilha com valores já em MM é convertida para reais internamente."""
+    from src.raiox import normalize_base
+    df = pd.DataFrame({
+        "nomeGrupo": ["A", "B"], "valorLimite": [4116.0, 2800.0],
+        "valorRisco": [3970.0, 2790.0],
+    })
+    base = normalize_base(df)
+    assert base["limite"].sum() == (4116.0 + 2800.0) * 1_000_000
+
+
+def test_escala_em_reais_preservada():
+    """Planilha com valores em reais não é multiplicada."""
+    from src.raiox import normalize_base
+    df = pd.DataFrame({
+        "nomeGrupo": ["A"], "valorLimite": [70_000_000], "valorRisco": [50_000_000],
+    })
+    base = normalize_base(df)
+    assert base["limite"].sum() == 70_000_000
