@@ -319,8 +319,9 @@ def grafico_vencimentos(venc: pd.DataFrame) -> go.Figure | None:
                 text=venc["Renovação automática"], textposition="outside",
                 textangle=0, cliponaxis=False,
                 hovertemplate="<b>%{x}</b><br>Renov. automática: %{y}<extra></extra>")
+    fig.update_layout(**_LAYOUT_PADRAO)
     fig.update_layout(
-        **_LAYOUT_PADRAO, barmode="group", height=420,
+        barmode="group", height=420,
         yaxis=dict(title="Risco (R$)", showgrid=False, showticklabels=False),
         yaxis2=dict(title="Grupos", overlaying="y", side="right",
                     showgrid=False, showticklabels=False),
