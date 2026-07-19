@@ -83,17 +83,33 @@ class CotacoesIntlCollector(Collector):
 
     def collect(self) -> list[IndicatorValue]:
         out: list[IndicatorValue] = []
+        # User-Agent de navegador real: o Yahoo bloqueia agentes "não-browser"
+        # quando a requisição vem de IP de datacenter (ex.: GitHub Actions).
+        headers = {
+            "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) "
+                           "Chrome/126.0.0.0 Safari/537.36"),
+            "Accept": "application/json,text/plain,*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        # tenta os dois hosts do Yahoo (query1 e query2) com algumas tentativas
+        hosts = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]
         for ticker in TICKERS:
-            try:
-                resp = httpx.get(
-                    YAHOO_URL.format(ticker=ticker),
-                    params={"range": self.range, "interval": "1d"},
-                    timeout=30,
-                    follow_redirects=True,
-                    headers={"User-Agent": "Mozilla/5.0 (compatible; visaosetorialsucro/0.1)"},
-                )
-                resp.raise_for_status()
-                out.extend(parse_yahoo(resp.json(), ticker))
-            except Exception:  # noqa: BLE001 — um ticker fora não derruba o outro
-                continue
+            valores: list[IndicatorValue] = []
+            for tentativa in range(3):
+                host = hosts[tentativa % len(hosts)]
+                url = f"https://{host}/v8/finance/chart/{ticker}"
+                try:
+                    resp = httpx.get(
+                        url,
+                        params={"range": self.range, "interval": "1d"},
+                        timeout=30, follow_redirects=True, headers=headers,
+                    )
+                    resp.raise_for_status()
+                    valores = parse_yahoo(resp.json(), ticker)
+                    if valores:
+                        break
+                except Exception:  # noqa: BLE001 — tenta o próximo host/tentativa
+                    continue
+            out.extend(valores)
         return out
