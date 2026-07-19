@@ -19,7 +19,6 @@ if _r not in _sys.path:
 
 
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 
 from src.app_auth import exigir_login
@@ -45,26 +44,31 @@ from src.raiox import (
 )
 from src.raiox_abas import (
     build_qualidade,
+    build_visitas_resumo,
+    build_visitas_views,
     clientes_por_analista,
-    cobertura_visitas,
     estilizar,
     movement_available,
-    tabela_vencimentos,
     table_b2_ou_pior,
     table_movement,
     table_rating_movement,
     table_top_bucket,
+    vencimentos_mensais,
 )
 from src.raiox_visual import (
-    VERDE,
     aplicar_filtros,
     barras_por_dimensao,
     barras_setor_risco_disp,
+    donut_cobertura,
     donut_por_bucket,
     fmt_int,
     fmt_mm,
+    grafico_vencimentos,
+    heatmap_setor_faixa,
+    histograma_utilizacao,
     kpi_html,
     opcoes_filtro,
+    pareto_concentracao,
     secao,
     top_concentracao,
 )
@@ -235,6 +239,26 @@ with abas[1]:
     else:
         st.caption("A base não tem a coluna de diretor comercial.")
 
+    st.markdown(secao("Mapa de risco", "setor gerencial × faixa de rating"),
+                unsafe_allow_html=True)
+    fig = heatmap_setor_faixa(df)
+    if fig:
+        st.plotly_chart(fig, width="stretch")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(secao("Concentração acumulada",
+                          "% do risco nos N maiores grupos"), unsafe_allow_html=True)
+        fig = pareto_concentracao(df)
+        if fig:
+            st.plotly_chart(fig, width="stretch")
+    with c2:
+        st.markdown(secao("Utilização do limite",
+                          "distribuição de risco ÷ limite"), unsafe_allow_html=True)
+        fig = histograma_utilizacao(df)
+        if fig:
+            st.plotly_chart(fig, width="stretch")
+
 # --- Comentários ---
 with abas[2]:
     st.markdown(secao("Comentários por cliente",
@@ -343,35 +367,83 @@ with abas[5]:
 
 # --- Próximos Vencimentos ---
 with abas[6]:
-    st.markdown(secao("Próximos vencimentos de limite"), unsafe_allow_html=True)
-    venc = tabela_vencimentos(df)
+    st.markdown(secao("Próximos vencimentos de limite",
+                      "a partir do mês vigente (vira no dia 5)"),
+                unsafe_allow_html=True)
+    venc = vencimentos_mensais(df)
     if venc.empty:
-        st.info("A base carregada não tem a data de vencimento de limite.")
+        st.info("A base carregada não tem vencimentos de limite no período "
+                "(ou não tem a coluna de data de vencimento).")
     else:
-        meses = {1: "jan", 2: "fev", 3: "mar", 4: "abr", 5: "mai", 6: "jun",
-                 7: "jul", 8: "ago", 9: "set", 10: "out", 11: "nov", 12: "dez"}
-        venc = venc.copy()
-        venc["Período"] = venc["Mês"].map(meses) + "/" + venc["Ano"].astype(str)
-        fig = px.bar(venc, x="Período", y="Risco (R$ mm)", hover_data=["Grupos"],
-                     color_discrete_sequence=[VERDE])
-        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig, width="stretch")
-        st.dataframe(estilizar(venc[["Ano", "Mês", "Grupos", "Risco (R$ mm)"]]),
+        fig = grafico_vencimentos(venc)
+        if fig:
+            st.plotly_chart(fig, width="stretch")
+        tab = venc.copy()
+        tab["Risco (R$ mm)"] = tab["Risco"] / 1_000_000
+        st.dataframe(estilizar(tab[["Período", "Grupos", "Renovação automática",
+                                     "Risco (R$ mm)"]]),
                      width="stretch", hide_index=True)
 
 # --- Visitas ---
 with abas[7]:
-    st.markdown(secao("Cobertura de visitas", "por analista"), unsafe_allow_html=True)
-    vis = cobertura_visitas(df)
-    if vis.empty:
-        st.info("A base carregada não tem data de visita ou analista.")
+    st.markdown(secao("Visitas", "política: Ba4+ até 12 meses · Ba6- até 6 meses"),
+                unsafe_allow_html=True)
+    resumo_vis = build_visitas_resumo(df)
+    if resumo_vis.empty:
+        st.info("A base carregada não tem rating/data de visita para esta análise.")
     else:
-        st.dataframe(estilizar(vis), width="stretch", hide_index=True)
-        fig = px.bar(vis, x="Analista", y=["Com visita", "Sem visita"], barmode="stack",
-                     labels={"value": "Clientes", "variable": ""},
-                     color_discrete_sequence=[VERDE, "#C6881C"])
-        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig, width="stretch")
+        fora = resumo_vis[resumo_vis["Categoria"] != "Em dia"]
+        risco_fora = fora["Risco"].sum()
+        grupos_fora = int(fora["Grupos"].sum())
+        risco_total = resumo_vis["Risco"].sum()
+        grupos_total = int(resumo_vis["Grupos"].sum())
+        st.markdown(kpi_html([
+            ("Risco · visita pendente", fmt_mm(risco_fora),
+             f"{risco_fora / risco_total:.0%} da carteira".replace(".", ",")
+             if risco_total else "—"),
+            ("Grupos · visita pendente", fmt_int(grupos_fora),
+             f"{grupos_fora / grupos_total:.0%} da carteira".replace(".", ",")
+             if grupos_total else "—"),
+        ]), unsafe_allow_html=True)
+
+        g1, g2 = st.columns(2)
+        with g1:
+            fig = donut_cobertura(resumo_vis, "Risco", "% Risco",
+                                  "Cobertura · por risco")
+            if fig:
+                st.plotly_chart(fig, width="stretch")
+        with g2:
+            fig = donut_cobertura(resumo_vis, "Grupos", "% Grupos",
+                                  "Cobertura · por grupos")
+            if fig:
+                st.plotly_chart(fig, width="stretch")
+
+        sem_df, ba4_df, ba6_df = build_visitas_views(df)
+        _ren = {"id": "ID", "grupo": "Grupo", "analista": "Analista",
+                "rating": "Rating", "limite": "Limite (R$ mm)",
+                "risco": "Risco (R$ mm)", "data_visita": "Última visita",
+                "meses_sem_visita": "Meses sem visita"}
+
+        st.markdown(f"**Grupos sem visita · {len(sem_df)}**")
+        if sem_df.empty:
+            st.caption("Não há grupos sem visita.")
+        else:
+            st.dataframe(estilizar(sem_df.rename(columns=_ren)),
+                         width="stretch", hide_index=True)
+
+        st.markdown(f"**Ba4 ou acima com 12+ meses sem visita · {len(ba4_df)}**")
+        if ba4_df.empty:
+            st.caption("Nenhum cliente nesta condição.")
+        else:
+            st.dataframe(estilizar(ba4_df.rename(columns=_ren)),
+                         width="stretch", hide_index=True)
+
+        st.markdown(f"**Ba6 ou abaixo com 6+ meses sem visita · {len(ba6_df)}**")
+        if ba6_df.empty:
+            st.caption("Nenhum cliente nesta condição.")
+        else:
+            st.dataframe(estilizar(ba6_df.rename(columns=_ren)),
+                         width="stretch", hide_index=True)
 
 # --- Clientes ---
 with abas[8]:

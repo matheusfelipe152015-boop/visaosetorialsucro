@@ -427,3 +427,115 @@ def concentracao_top(df: pd.DataFrame, n: int = 10) -> dict:
     topo = float(por_grupo.head(n).sum())
     return {"top_n": n, "risco_top": topo, "risco_total": total,
             "pct": (topo / total) if total else 0.0}
+
+
+# ── Visitas (fiel ao Raio X original) ─────────────────────────────────────
+# Regras: "Sem visita" (nunca visitado), "Ba4 ou acima | 12m+" (rating_num <= 5
+# e 12+ meses sem visita), "Ba6 ou abaixo | 6m+" (rating_num >= 6 e 6+ meses),
+# "Em dia" (o resto).
+
+def _meses_sem_visita(out: pd.DataFrame) -> pd.Series:
+    hoje = pd.Timestamp.today().normalize()
+    dv = pd.to_datetime(out["data_visita"], errors="coerce", dayfirst=True)
+    return (hoje.year - dv.dt.year) * 12 + (hoje.month - dv.dt.month)
+
+
+def _mascaras_visita(out: pd.DataFrame):
+    dv = pd.to_datetime(out["data_visita"], errors="coerce", dayfirst=True)
+    meses = _meses_sem_visita(out)
+    m_sem = dv.isna()
+    m_ba4 = out["rating_num"].notna() & (out["rating_num"] <= 5) & (meses >= 12) & ~m_sem
+    m_ba6 = out["rating_num"].notna() & (out["rating_num"] >= 6) & (meses >= 6) & ~m_sem
+    m_fora = m_sem | m_ba4 | m_ba6
+    return m_sem, m_ba4, m_ba6, ~m_fora, meses
+
+
+def build_visitas_resumo(df: pd.DataFrame) -> pd.DataFrame:
+    """Resumo por categoria de visita: grupos, risco e percentuais."""
+    if "rating_num" not in df.columns:
+        return pd.DataFrame()
+    out = df.copy()
+    if "data_visita" not in out.columns:
+        out["data_visita"] = pd.NaT
+    out["risco"] = pd.to_numeric(out.get("risco", 0), errors="coerce").fillna(0)
+    m_sem, m_ba4, m_ba6, m_ok, _ = _mascaras_visita(out)
+
+    total_grupos = out["grupo"].nunique()
+    total_risco = out["risco"].sum()
+
+    linhas = []
+    for nome, mask in [("Em dia", m_ok), ("Sem visita", m_sem),
+                       ("Ba4 ou acima | 12m+", m_ba4), ("Ba6 ou abaixo | 6m+", m_ba6)]:
+        grupos = out.loc[mask, "grupo"].nunique()
+        risco = out.loc[mask, "risco"].sum()
+        linhas.append({
+            "Categoria": nome, "Grupos": grupos, "Risco": risco,
+            "% Grupos": (grupos / total_grupos) if total_grupos else pd.NA,
+            "% Risco": (risco / total_risco) if total_risco else pd.NA,
+        })
+    return pd.DataFrame(linhas)
+
+
+def build_visitas_views(df: pd.DataFrame):
+    """As 3 tabelas de detalhe: sem visita, Ba4+ 12m+, Ba6- 6m+."""
+    if "rating_num" not in df.columns:
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+    out = df.copy()
+    if "data_visita" not in out.columns:
+        out["data_visita"] = pd.NaT
+    m_sem, m_ba4, m_ba6, _, meses = _mascaras_visita(out)
+    out["meses_sem_visita"] = meses
+
+    cols = [c for c in ["id", "grupo", "analista", "rating", "limite", "risco",
+                        "data_visita", "meses_sem_visita"] if c in out.columns]
+    sem = out[m_sem][cols].sort_values("grupo")
+    ba4 = out[m_ba4][cols].sort_values("meses_sem_visita", ascending=False)
+    ba6 = out[m_ba6][cols].sort_values("meses_sem_visita", ascending=False)
+    return sem, ba4, ba6
+
+
+# ── Próximos Vencimentos (regra do dia 5 + renovação automática) ──────────
+
+def _eh_renovacao_automatica(serie: pd.Series) -> pd.Series:
+    txt = serie.fillna("").astype(str).str.lower()
+    return txt.str.contains("eleg") | txt.str.contains("autom") | txt.eq("sim")
+
+
+def vencimentos_mensais(df: pd.DataFrame, meses_futuros: int = 18) -> pd.DataFrame:
+    """Vencimentos por mês, a partir do mês vigente (que só vira no dia 5).
+
+    Devolve: Período, Risco (reais), Grupos, Renovação automática.
+    """
+    col = "data_venc_limite"
+    if col not in df.columns:
+        return pd.DataFrame()
+    d = df.copy()
+    d[col] = pd.to_datetime(d[col], errors="coerce", dayfirst=True)
+    d = d[d[col].notna()]
+    if d.empty:
+        return pd.DataFrame()
+
+    # regra do dia 5: até o dia 4 o "mês vigente" ainda é o anterior
+    hoje = pd.Timestamp.today().normalize()
+    inicio = (hoje - pd.Timedelta(days=4)).replace(day=1)
+    fim = inicio + pd.DateOffset(months=meses_futuros)
+    d = d[(d[col] >= inicio) & (d[col] < fim)]
+    if d.empty:
+        return pd.DataFrame()
+
+    d["_mes"] = d[col].dt.to_period("M")
+    if "elegibilidade" in d.columns:
+        d["_renov"] = _eh_renovacao_automatica(d["elegibilidade"])
+    else:
+        d["_renov"] = False
+
+    g = (d.groupby("_mes")
+         .agg(Risco=("risco", "sum"), Grupos=("grupo", "nunique"),
+              Renovacao=("_renov", "sum"))
+         .reset_index())
+    meses_pt = {1: "jan", 2: "fev", 3: "mar", 4: "abr", 5: "mai", 6: "jun",
+                7: "jul", 8: "ago", 9: "set", 10: "out", 11: "nov", 12: "dez"}
+    g["Período"] = g["_mes"].apply(lambda p: f"{meses_pt[p.month]}/{p.year}")
+    g = g.sort_values("_mes")
+    g["Renovação automática"] = g["Renovacao"].astype(int)
+    return g[["Período", "Risco", "Grupos", "Renovação automática"]]

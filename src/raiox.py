@@ -141,6 +141,24 @@ def _bucket(n) -> str:
     return "Não classificado"
 
 
+def garantir_escala(df: pd.DataFrame) -> pd.DataFrame:
+    """Padroniza os valores em REAIS.
+
+    Planilhas do banco costumam vir com os valores JÁ em milhões (limite 4.116
+    = R$ 4,1 bi). Se a mediana do limite for pequena demais para ser reais,
+    assume MM e converte. Idempotente: rodar duas vezes não muda nada.
+    """
+    if "limite" not in df.columns:
+        return df
+    out = df.copy()
+    mediana = pd.to_numeric(out["limite"], errors="coerce").median()
+    if pd.notna(mediana) and 0 < mediana < 100_000:
+        for c in ["limite", "risco", "disponibilidade", "limite_m1", "risco_m1"]:
+            if c in out.columns:
+                out[c] = pd.to_numeric(out[c], errors="coerce") * 1_000_000
+    return out
+
+
 def ler_carteira_excel(arquivo) -> pd.DataFrame:
     """Lê a planilha detectando automaticamente a linha do cabeçalho.
 
@@ -195,17 +213,7 @@ def normalize_base(df: pd.DataFrame) -> pd.DataFrame:
         if c in new.columns:
             new[c] = pd.to_numeric(new[c], errors="coerce")
 
-    # detecção de escala: planilhas do banco costumam vir com os valores JÁ em
-    # milhões (ex.: limite 4.116 = R$ 4,1 bi). Internamente padronizamos em
-    # reais. Se a mediana do limite for pequena demais para ser reais, assume
-    # que está em MM e converte.
-    if "limite" in new.columns:
-        mediana = pd.to_numeric(new["limite"], errors="coerce").median()
-        if pd.notna(mediana) and 0 < mediana < 100_000:
-            for c in ["limite", "risco", "disponibilidade", "limite_m1",
-                      "risco_m1"]:
-                if c in new.columns:
-                    new[c] = new[c] * 1_000_000
+    new = garantir_escala(new)
 
     # rating textual -> numérico
     if "rating_num" not in new.columns or new["rating_num"].isna().all():
@@ -366,7 +374,10 @@ def carregar_base_teste() -> pd.DataFrame | None:
     if df.empty:
         return None
     import io
-    return pd.read_json(io.StringIO(df.iloc[0]["dados_json"]), orient="records")
+    out = pd.read_json(io.StringIO(df.iloc[0]["dados_json"]), orient="records")
+    if "id" in out.columns:
+        out["id"] = out["id"].astype(str).str.strip()
+    return garantir_escala(out)
 
 
 def existe_base_teste() -> bool:
