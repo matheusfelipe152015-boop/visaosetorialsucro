@@ -244,7 +244,7 @@ def _e_linha_total(nome: str) -> bool:
     return any(n.startswith(r) for r in _ROTULOS_TOTAL)
 
 
-def _fmt_num_br(v, casas: int = 1) -> str:
+def _fmt_num_br(v, casas: int = 0) -> str:
     """Número no padrão brasileiro: 1.234,5 (sem notação científica)."""
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return "–"
@@ -263,13 +263,14 @@ def estilizar(df: pd.DataFrame):
     if df is None or df.empty:
         return df
     try:
-        # formata colunas numéricas no padrão brasileiro
+        # formata colunas numéricas: inteiros BR + percentual no R/L
         formatos = {}
         for col in df.columns:
             cl = str(col).lower()
-            if any(t in cl for t in ["r$", "mm", "limite", "risco", "delta", "%", "notch"]):
-                casas = 2 if "%" in cl else 1
-                formatos[col] = lambda v, c=casas: _fmt_num_br(v, c)
+            if cl in ("r/l",):
+                formatos[col] = lambda v: fmt_pct(v)
+            elif any(t in cl for t in ["r$", "mm", "limite", "risco", "delta", "notch"]):
+                formatos[col] = lambda v: fmt_int_br(v)
 
         sty = df.style.format(formatos, na_rep="–")
 
@@ -295,3 +296,134 @@ def estilizar(df: pd.DataFrame):
         return sty
     except Exception:  # noqa: BLE001 — se estilizar falhar, mostra a tabela crua
         return df
+
+
+# ── formatação profissional (inteiros + MM) ──────────────────────────────
+
+def fmt_int_br(v) -> str:
+    """Inteiro no padrão brasileiro: 76.135 (sem casas decimais)."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "–"
+    try:
+        return f"{float(v):,.0f}".replace(",", ".")
+    except (ValueError, TypeError):
+        return str(v)
+
+
+def fmt_mm(v) -> str:
+    """Valor em reais -> 'R$ 1.234 MM' (inteiro, milhões)."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "–"
+    try:
+        return f"R$ {fmt_int_br(float(v) / 1_000_000)} MM"
+    except (ValueError, TypeError):
+        return "–"
+
+
+def fmt_pct(v, casas: int = 0) -> str:
+    """0.66 -> '66%'."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "–"
+    try:
+        s = f"{float(v) * 100:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return s + "%"
+    except (ValueError, TypeError):
+        return "–"
+
+
+# cores por faixa de rating (harmonizadas com a plataforma)
+BUCKET_COLORS = {
+    "A1 - Baa4": "#14573A",       # verde escuro (melhor)
+    "Ba1 - Ba4": "#C6881C",       # âmbar (médio)
+    "Ba6 ou pior": "#B4462E",     # vermelho terroso (pior)
+    "Não classificado": "#9AA6A0",
+}
+
+
+def aplicar_layout(fig, altura: int = 340, titulo: str | None = None):
+    """Layout padrão profissional dos gráficos (limpo, fonte da plataforma)."""
+    fig.update_layout(
+        template="simple_white",
+        height=altura,
+        title=titulo,
+        title_font={"size": 15, "color": "#18241F"},
+        margin={"l": 10, "r": 10, "t": 46 if titulo else 16, "b": 10},
+        font={"color": "#18241F", "size": 13},
+        legend={"orientation": "h", "y": -0.15},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
+
+
+def fig_risco_disponibilidade_setor(df: pd.DataFrame):
+    """Barras empilhadas: risco + disponibilidade por setor (fiel ao original)."""
+    import plotly.graph_objects as go
+    g = (
+        df.groupby("setor_gerencial", as_index=False)
+        .agg(risco=("risco", "sum"), disponibilidade=("disponibilidade", "sum"),
+             limite=("limite", "sum"))
+        .sort_values("limite", ascending=True).tail(12)
+    )
+    fig = go.Figure()
+    fig.add_bar(y=g["setor_gerencial"], x=g["risco"], orientation="h",
+                name="Risco", marker_color="#14573A",
+                text=[fmt_mm(v) for v in g["risco"]], textposition="inside",
+                insidetextanchor="middle")
+    fig.add_bar(y=g["setor_gerencial"], x=g["disponibilidade"], orientation="h",
+                name="Disponibilidade", marker_color="#CBD8D0",
+                text=[fmt_mm(v) for v in g["disponibilidade"]], textposition="inside",
+                insidetextanchor="middle")
+    fig.update_layout(barmode="stack")
+    return aplicar_layout(fig, altura=420, titulo="Risco × Disponibilidade por setor")
+
+
+def fig_donut(df: pd.DataFrame, valor: str, titulo: str):
+    """Donut por faixa de rating (risco ou limite), fiel ao original."""
+    import plotly.express as px
+    d = (
+        df.groupby("bucket_rating", as_index=False)
+        .agg(v=(valor, "sum"), grupos=("grupo", "nunique"))
+    )
+    d = d[d["v"] > 0]
+    if d.empty:
+        return None
+    fig = px.pie(d, names="bucket_rating", values="v", hole=0.62,
+                 color="bucket_rating", color_discrete_map=BUCKET_COLORS,
+                 custom_data=["grupos"])
+    fig.update_traces(
+        textinfo="percent",
+        hovertemplate=("<b>%{label}</b><br>R$ %{value:,.0f}"
+                       "<br>%{customdata[0]} grupos<extra></extra>"),
+    )
+    return aplicar_layout(fig, altura=330, titulo=titulo)
+
+
+def fig_por_dimensao(df: pd.DataFrame, coluna: str, titulo: str, top_n: int = 12):
+    """Barras horizontais de risco por uma dimensão (analista, officer, diretor...)."""
+    import plotly.express as px
+    if coluna not in df.columns:
+        return None
+    d = (
+        df.groupby(coluna, as_index=False)["risco"].sum()
+        .sort_values("risco", ascending=False).head(top_n)
+    )
+    d = d[d["risco"] > 0]
+    if d.empty:
+        return None
+    fig = px.bar(d, x="risco", y=coluna, orientation="h",
+                 color_discrete_sequence=["#14573A"],
+                 text=[fmt_mm(v) for v in d["risco"]])
+    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_layout(yaxis={"categoryorder": "total ascending"},
+                      xaxis_title=None, yaxis_title=None)
+    return aplicar_layout(fig, altura=max(300, 34 * len(d) + 90), titulo=titulo)
+
+
+def concentracao_top(df: pd.DataFrame, n: int = 10) -> dict:
+    """Concentração: quanto do risco está nos top N grupos."""
+    por_grupo = df.groupby("grupo")["risco"].sum().sort_values(ascending=False)
+    total = float(por_grupo.sum())
+    topo = float(por_grupo.head(n).sum())
+    return {"top_n": n, "risco_top": topo, "risco_total": total,
+            "pct": (topo / total) if total else 0.0}
