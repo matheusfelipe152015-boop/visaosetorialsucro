@@ -24,6 +24,7 @@ import streamlit as st
 from src.app_auth import exigir_login
 from src.domain.enums import Frequency
 from src.domain.freshness import freshness_status
+from src.indicadores_visual import kpi_indicadores, serie_para_grafico
 from src.persistence.db import fetch_df, init_schema
 from src.theme import apply_theme, fresh_badge
 
@@ -34,6 +35,64 @@ apply_theme()
 
 st.markdown('<div class="eyebrow">02 · Catálogo</div>', unsafe_allow_html=True)
 st.title("Indicadores da plataforma")
+
+# ── PAINEL DE MERCADO (estilo painel de preços) ──────────────────────────
+import plotly.express as _px  # noqa: E402
+
+_SECOES = {
+    "Açúcar": [
+        ("sugar_ny11", "Açúcar NY nº 11", "¢/lb"),
+        ("acucar_cristal_sp", "Cristal ESALQ (SP)", "R$/sc"),
+        ("acucar_londres5", "Branco Londres nº 5", "US$/t"),
+    ],
+    "Etanol": [
+        ("etanol_hidratado", "Hidratado (SP)", "R$/L"),
+        ("etanol_anidro_sp", "Anidro (SP)", "R$/L"),
+        ("preco_etanol", "Etanol revenda", "R$/L"),
+    ],
+    "Petróleo & câmbio": [
+        ("brent", "Brent", "US$/bbl"),
+        ("usd_brl", "USD/BRL", "R$"),
+        ("selic_meta", "Selic meta", "% a.a."),
+    ],
+}
+
+st.markdown(
+    '<div style="color:#5C6B63;max-width:70ch;margin-bottom:6px">Painel de '
+    "mercado do complexo sucroenergético — valor mais recente e variações "
+    "em 30 dias, 90 dias e 12 meses. Fontes citadas no catálogo abaixo.</div>",
+    unsafe_allow_html=True,
+)
+
+for titulo, itens in _SECOES.items():
+    st.markdown(
+        f'<div style="font-size:15px;font-weight:800;color:#18241F;'
+        f'margin:14px 0 2px">{titulo}</div>'
+        f'<div style="height:2px;background:#14573A;width:38px;'
+        f'border-radius:2px;margin-bottom:8px"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(kpi_indicadores(itens), unsafe_allow_html=True)
+
+# gráfico do indicador em destaque (escolhido pelo usuário)
+st.markdown(
+    '<div style="font-size:15px;font-weight:800;color:#18241F;margin:16px 0 6px">'
+    "Histórico</div>", unsafe_allow_html=True,
+)
+_todos = [(c, n) for sec in _SECOES.values() for (c, n, _u) in sec]
+_rotulos = {n: c for c, n in _todos}
+_esc = st.selectbox("Indicador", list(_rotulos.keys()), key="ind_graf")
+_serie_g = serie_para_grafico(_rotulos[_esc], dias=365)
+if _serie_g.empty:
+    st.caption("Este indicador ainda não tem histórico coletado.")
+else:
+    _fig = _px.line(_serie_g, x="Data", y="Valor", color_discrete_sequence=["#14573A"])
+    _fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                       height=300, margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(_fig, width="stretch")
+
+st.divider()
+st.markdown('<div class="eyebrow">Catálogo completo</div>', unsafe_allow_html=True)
 st.markdown(
     '<div style="color:#5C6B63;max-width:60ch;margin-bottom:8px">Tudo o que pretendemos '
     "acompanhar, com a fonte de origem, o método de coleta e a frequência de atualização. "
