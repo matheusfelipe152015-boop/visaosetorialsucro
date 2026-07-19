@@ -524,7 +524,9 @@ def vencimentos_mensais(df: pd.DataFrame, meses_futuros: int = 18) -> pd.DataFra
         return pd.DataFrame()
 
     d["_mes"] = d[col].dt.to_period("M")
-    if "elegibilidade" in d.columns:
+    if "renovacao_automatica" in d.columns:
+        d["_renov"] = _eh_renovacao_automatica(d["renovacao_automatica"])
+    elif "elegibilidade" in d.columns:
         d["_renov"] = _eh_renovacao_automatica(d["elegibilidade"])
     else:
         d["_renov"] = False
@@ -539,3 +541,33 @@ def vencimentos_mensais(df: pd.DataFrame, meses_futuros: int = 18) -> pd.DataFra
     g = g.sort_values("_mes")
     g["Renovação automática"] = g["Renovacao"].astype(int)
     return g[["Período", "Risco", "Grupos", "Renovação automática"]]
+
+
+# ── preparação de tabelas para exibição (MM, datas dd/mm/aaaa) ────────────
+
+_COLS_DINHEIRO = {"limite", "risco", "disponibilidade", "delta_limite",
+                  "delta_risco", "limite_m1", "risco_m1"}
+_COLS_DATA = {"data_visita", "data_venc_limite", "data_venc_rating"}
+
+
+def preparar_tabela(df: pd.DataFrame) -> pd.DataFrame:
+    """Deixa uma tabela pronta para exibir: dinheiro em MM, datas dd/mm/aaaa.
+
+    Renomeia as colunas de dinheiro para incluir "(R$ mm)" (o estilizar cuida
+    do resto da formatação).
+    """
+    out = df.copy()
+    renome = {}
+    for c in list(out.columns):
+        cl = str(c).strip().lower()
+        if cl in _COLS_DINHEIRO:
+            out[c] = pd.to_numeric(out[c], errors="coerce") / 1_000_000
+            renome[c] = f"{c} (R$ mm)"
+        elif cl in _COLS_DATA or cl.startswith("data"):
+            dt = pd.to_datetime(out[c], errors="coerce")
+            out[c] = dt.dt.strftime("%d/%m/%Y").fillna("–")
+        elif cl == "meses_sem_visita":
+            out[c] = pd.to_numeric(out[c], errors="coerce").round(0).astype("Int64")
+    if renome:
+        out = out.rename(columns=renome)
+    return out

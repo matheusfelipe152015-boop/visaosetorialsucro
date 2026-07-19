@@ -202,6 +202,13 @@ def normalize_base(df: pd.DataFrame) -> pd.DataFrame:
         if col is not None:
             new[key] = out[col]
 
+    # renovação automática: aceita qualquer coluna cujo nome contenha "renov"
+    if "renovacao_automatica" not in new.columns:
+        for c in out.columns:
+            if "renov" in str(c).strip().lower():
+                new["renovacao_automatica"] = out[c]
+                break
+
     if "grupo" not in new.columns:
         raise ValueError("Não encontrei a coluna de grupo na base carregada.")
     if "id" not in new.columns:

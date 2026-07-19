@@ -46,9 +46,9 @@ from src.raiox_abas import (
     build_qualidade,
     build_visitas_resumo,
     build_visitas_views,
-    clientes_por_analista,
     estilizar,
     movement_available,
+    preparar_tabela,
     table_b2_ou_pior,
     table_movement,
     table_rating_movement,
@@ -153,13 +153,16 @@ if tem_base_salva or fonte == "salva":
 if fonte == "exemplo":
     st.warning("🧪 Usando **carteira de exemplo** (dados fictícios).")
 
-# ── filtros ──────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("---")
-    st.markdown("### Filtros")
-    escolhas: dict[str, list[str]] = {}
-    for col, rotulo, opcoes in opcoes_filtro(base):
-        escolhas[col] = st.multiselect(rotulo, opcoes, key=f"filtro_{col}")
+# ── filtros (painel no topo, sempre visível) ─────────────────────────────
+escolhas: dict[str, list[str]] = {}
+dims = opcoes_filtro(base)
+if dims:
+    with st.expander("🔎 **Filtros** — analista, setor, rating, officer, diretor",
+                     expanded=False):
+        colunas_f = st.columns(min(3, len(dims)))
+        for i, (col, rotulo, opcoes) in enumerate(dims):
+            with colunas_f[i % len(colunas_f)]:
+                escolhas[col] = st.multiselect(rotulo, opcoes, key=f"filtro_{col}")
 
 df = aplicar_filtros(base, escolhas)
 filtrado = any(v for v in escolhas.values())
@@ -419,9 +422,12 @@ with abas[7]:
                 st.plotly_chart(fig, width="stretch")
 
         sem_df, ba4_df, ba6_df = build_visitas_views(df)
+        sem_df = preparar_tabela(sem_df)
+        ba4_df = preparar_tabela(ba4_df)
+        ba6_df = preparar_tabela(ba6_df)
         _ren = {"id": "ID", "grupo": "Grupo", "analista": "Analista",
-                "rating": "Rating", "limite": "Limite (R$ mm)",
-                "risco": "Risco (R$ mm)", "data_visita": "Última visita",
+                "rating": "Rating", "limite (R$ mm)": "Limite (R$ mm)",
+                "risco (R$ mm)": "Risco (R$ mm)", "data_visita": "Última visita",
                 "meses_sem_visita": "Meses sem visita"}
 
         st.markdown(f"**Grupos sem visita · {len(sem_df)}**")
@@ -447,26 +453,56 @@ with abas[7]:
 
 # --- Clientes ---
 with abas[8]:
-    st.markdown(secao("Clientes por analista"), unsafe_allow_html=True)
-    resumo_cli = clientes_por_analista(df)
-    if resumo_cli.empty:
+    st.markdown(secao("Clientes por analista",
+                      "abra um analista para ver a carteira dele e comentar"),
+                unsafe_allow_html=True)
+    if "analista" not in df.columns:
         st.info("A base carregada não tem a coluna de analista.")
     else:
-        st.dataframe(estilizar(resumo_cli), width="stretch", hide_index=True)
-        st.markdown("**Ver clientes de um analista**")
-        analista_sel = st.selectbox("Analista", resumo_cli["Analista"].tolist(),
-                                    key="cli_analista")
-        det = df[df["analista"].astype(str) == str(analista_sel)].copy()
-        det = det.sort_values("risco", ascending=False)
-        cols = [c for c in ["id", "grupo", "setor_gerencial", "rating", "limite",
-                            "risco", "disponibilidade", "data_visita",
-                            "status", "comentario"] if c in det.columns]
-        mostra = det[cols].rename(columns={
-            "id": "ID", "grupo": "Grupo", "setor_gerencial": "Setor",
-            "rating": "Rating", "limite": "Limite", "risco": "Risco",
-            "disponibilidade": "Disponível", "data_visita": "Data visita",
-            "status": "Status", "comentario": "Comentário"})
-        st.dataframe(estilizar(mostra), width="stretch", hide_index=True)
+        resumo_cli = (df.groupby("analista", as_index=False)
+                      .agg(clientes=("grupo", "nunique"),
+                           limite=("limite", "sum"), risco=("risco", "sum"))
+                      .sort_values("risco", ascending=False))
+        for _, ra in resumo_cli.iterrows():
+            nome_a = str(ra["analista"])
+            titulo_exp = (f"{nome_a}  ·  {fmt_int(ra['clientes'])} clientes  ·  "
+                          f"Limite {fmt_mm(ra['limite'])}  ·  Risco {fmt_mm(ra['risco'])}")
+            with st.expander(titulo_exp):
+                det = df[df["analista"].astype(str) == nome_a].copy()
+                det = det.sort_values("risco", ascending=False)
+                cols = [c for c in ["id", "grupo", "setor_gerencial", "rating",
+                                    "limite", "risco", "disponibilidade",
+                                    "data_visita", "status", "comentario"]
+                        if c in det.columns]
+                mostra = preparar_tabela(det[cols]).rename(columns={
+                    "id": "ID", "grupo": "Grupo", "setor_gerencial": "Setor",
+                    "rating": "Rating", "limite (R$ mm)": "Limite (R$ mm)",
+                    "risco (R$ mm)": "Risco (R$ mm)",
+                    "disponibilidade (R$ mm)": "Disponível (R$ mm)",
+                    "data_visita": "Última visita",
+                    "status": "Status", "comentario": "Comentário"})
+                st.dataframe(estilizar(mostra), width="stretch", hide_index=True)
+
+                st.markdown("**Comentar um cliente**")
+                rot_cli = {f'{r["grupo"]} (ID {r["id"]})': r["id"]
+                           for _, r in det[["id", "grupo"]].drop_duplicates().iterrows()}
+                esc_cli = st.selectbox("Cliente", list(rot_cli.keys()),
+                                       key=f"cli_sel_{nome_a}")
+                cid_cli = rot_cli[esc_cli]
+                atual_cli = det[det["id"] == cid_cli].iloc[0]
+                c_st, c_bt = st.columns([4, 1])
+                with c_st:
+                    novo_txt = st.text_input(
+                        "Comentário / insight",
+                        value=str(atual_cli.get("comentario", "") or ""),
+                        key=f"cli_com_{nome_a}")
+                with c_bt:
+                    st.write("")
+                    if st.button("Salvar", key=f"cli_btn_{nome_a}", type="primary"):
+                        salvar_comentario(cid_cli,
+                                          str(atual_cli.get("status", "") or ""),
+                                          novo_txt, u["email"])
+                        st.success("Comentário salvo.")
 
 # --- Qualidade ---
 with abas[9]:

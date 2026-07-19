@@ -307,17 +307,18 @@ def grafico_vencimentos(venc: pd.DataFrame) -> go.Figure | None:
         return None
     fig = go.Figure()
     fig.add_bar(x=venc["Período"], y=venc["Risco"], name="Risco vencendo",
-                marker_color=VERDE, text=[fmt_mm(v) for v in venc["Risco"]],
+                offsetgroup="risco", marker_color=VERDE,
+                text=[fmt_mm(v) for v in venc["Risco"]],
                 textposition="outside", textangle=0, cliponaxis=False,
                 hovertemplate="<b>%{x}</b><br>Risco: R$ %{y:,.0f}<extra></extra>")
     fig.add_bar(x=venc["Período"], y=venc["Grupos"], name="Grupos", yaxis="y2",
-                marker_color=AMBAR, text=venc["Grupos"], textposition="outside",
-                textangle=0, cliponaxis=False,
+                offsetgroup="grupos", marker_color=AMBAR, text=venc["Grupos"],
+                textposition="outside", textangle=0, cliponaxis=False,
                 hovertemplate="<b>%{x}</b><br>Grupos: %{y}<extra></extra>")
     fig.add_bar(x=venc["Período"], y=venc["Renovação automática"],
-                name="Renovação automática", yaxis="y2", marker_color="#8FB3A2",
-                text=venc["Renovação automática"], textposition="outside",
-                textangle=0, cliponaxis=False,
+                name="Renovação automática", yaxis="y2", offsetgroup="renov",
+                marker_color="#8FB3A2", text=venc["Renovação automática"],
+                textposition="outside", textangle=0, cliponaxis=False,
                 hovertemplate="<b>%{x}</b><br>Renov. automática: %{y}<extra></extra>")
     fig.update_layout(**_LAYOUT_PADRAO)
     fig.update_layout(
