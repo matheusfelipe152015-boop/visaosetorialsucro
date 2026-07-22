@@ -26,6 +26,7 @@ from src.collectors.market.comex_export import ComexExportCollector
 from src.collectors.market.conab_cana import ConabCanaCollector
 from src.collectors.market.cotacoes_intl import CotacoesIntlCollector
 from src.collectors.market.cvm_financeiro import CvmFinanceiroCollector
+from src.collectors.market.mercado_intel import COLETORES_MERCADO
 from src.collectors.market.sugar_intel_csv import COLETORES_SUGAR_INTEL
 from src.collectors.news.rss_setor import RssNoticiasCollector
 from src.persistence.db import get_engine, init_schema
@@ -48,6 +49,7 @@ def coletores() -> list[Collector]:
         ConabCanaCollector(),          # safra de cana (CONAB)
         ChuvaPrevisaoCollector(),      # previsão de chuva 14 dias (sugar-intel)
         *[C() for C in COLETORES_SUGAR_INTEL],  # CEPEA, oil, UNICA, USDA (sugar-intel)
+        *[C() for C in COLETORES_MERCADO],  # CFTC, curva NY11, basis, finviz, ENSO
         CvmFinanceiroCollector(),
         RssNoticiasCollector(),        # radar de manchetes (RSS)
     ]

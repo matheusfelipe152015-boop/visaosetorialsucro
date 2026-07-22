@@ -20,6 +20,14 @@ import streamlit as st
 from src.app_auth import exigir_login
 from src.domain.enums import Frequency
 from src.domain.freshness import freshness_status
+from src.mercado_visual import (
+    categorias_finviz,
+    enso_atual,
+    fig_basis,
+    fig_cftc,
+    fig_curva_ny11,
+    fig_finviz,
+)
 from src.persistence.db import fetch_df, init_schema
 from src.theme import CANE, apply_theme, chip, fresh_badge, plotly_template
 
@@ -31,6 +39,77 @@ tmpl = plotly_template()
 
 st.markdown('<div class="eyebrow">03 · Mercado — Câmbio</div>', unsafe_allow_html=True)
 st.title("Dólar comercial")
+
+# ══ PAINEL DE MERCADO (sugar-intel) — todas as visões empilhadas ══════════
+
+def _sec(titulo: str, sub: str = "") -> None:
+    linha_sub = (f'<div style="font-size:13px;color:#5C6B63;margin-top:2px">{sub}</div>'
+                 if sub else "")
+    st.markdown(
+        f'<div style="margin:18px 0 8px"><div style="font-size:16px;font-weight:800;'
+        f'color:#18241F">{titulo}</div>{linha_sub}<div style="height:2px;'
+        f'background:#14573A;width:40px;margin-top:6px;border-radius:2px"></div></div>',
+        unsafe_allow_html=True)
+
+
+# ENSO — card de status do El Niño
+_enso = enso_atual()
+if _enso:
+    oni = _enso.get("oni_anom_c")
+    cor = "#B4462E" if (oni or 0) >= 0.5 else ("#1F7A4D" if (oni or 0) <= -0.5 else "#C6881C")
+    st.markdown(
+        f'<div style="background:#fff;border:1px solid #E6E2D6;border-left:4px solid {cor};'
+        f'border-radius:12px;padding:14px 18px;margin-bottom:6px">'
+        f'<div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;'
+        f'color:#5C6B63">Clima · El Niño / La Niña (ENSO)</div>'
+        f'<div style="font-size:18px;font-weight:800;color:#18241F;margin:4px 0">'
+        f'{_enso.get("alert_status", "—")} · fase {_enso.get("fase_oni", "—")} '
+        f'({_enso.get("trimestre_oni", "")})</div>'
+        f'<div style="font-size:13px;color:#5C6B63">ONI {oni} °C · Niño 3.4 '
+        f'{_enso.get("nino34_c", "—")} °C — {_enso.get("sinopse", "")}</div></div>',
+        unsafe_allow_html=True)
+
+_col1, _col2 = st.columns(2)
+with _col1:
+    _sec("Posição dos fundos no açúcar", "CFTC — líquido especulativo vs comercial")
+    _f = fig_cftc()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+    else:
+        st.caption("Rode o coletor CFTC para preencher.")
+with _col2:
+    _sec("Curva a termo do açúcar NY nº 11", "fechamento por vencimento")
+    _f = fig_curva_ny11()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+    else:
+        st.caption("Rode o coletor da curva NY11 para preencher.")
+
+_sec("Paridade de exportação", "ESALQ (interno) vs NY equivalente em R$/sc — últimos 2 anos")
+_f = fig_basis()
+if _f:
+    st.plotly_chart(_f, width="stretch")
+else:
+    st.caption("Rode o coletor de basis para preencher.")
+
+_sec("Performance de ativos no ano", "por classe (finviz)")
+_cats = categorias_finviz()
+_prioridade = [c for c in ["SOFTS", "GRAINS", "ENERGY", "CURRENCIES"] if c in _cats]
+_resto = [c for c in _cats if c not in _prioridade]
+_ordem = _prioridade + _resto
+if _ordem:
+    _cols = st.columns(2)
+    for _i, _cat in enumerate(_ordem):
+        with _cols[_i % 2]:
+            st.markdown(f"**{_cat.title()}**")
+            _f = fig_finviz(_cat)
+            if _f:
+                st.plotly_chart(_f, width="stretch")
+else:
+    st.caption("Rode o coletor finviz para preencher.")
+
+st.divider()
+st.markdown('<div class="eyebrow">Câmbio — histórico PTAX</div>', unsafe_allow_html=True)
 
 df = fetch_df(
     """SELECT data_referencia, valor, unidade, data_coleta, source_code
