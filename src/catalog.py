@@ -27,6 +27,7 @@ SOURCES = [
     ("cepea", "CEPEA/ESALQ", "USP", "D", "scraping", "a validar", 0, "daily", 0, "Fonte indisponível"),
     ("ice", "ICE", "Intercontinental Exchange", "D", "api", "paga", 0, "daily", 1, "Atenção"),
     ("yahoo", "Yahoo Finance", "Yahoo (republica ICE/NYMEX)", "C", "api", "aberta", 1, "daily", 1, "Atualizado"),
+    ("sugar_intel", "sugar-intel (open data)", "Igor Strongylis — dados abertos", "C", "csv", "aberta", 1, "daily", 1, "Atualizado"),
     ("b3", "B3", "B3 S.A.", "A", "api", "aberta", 1, "daily", 1, "Atualizado"),
     ("unica", "ÚNICA · UNICADATA", "ÚNICA", "B", "scraping", "a validar", 0, "biweekly", 1, "Desatualizado"),
     # Tier C — notícias (apenas metadados + resumo + link)

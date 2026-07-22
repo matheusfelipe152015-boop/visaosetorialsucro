@@ -20,11 +20,13 @@ from src.collectors.base import Collector
 from src.collectors.market.anp_precos import AnpPrecosCollector
 from src.collectors.market.bcb_macro import BcbMacroCollector
 from src.collectors.market.bcb_ptax import BcbPtaxCollector
-from src.collectors.market.comex_export import ComexExportCollector
-from src.collectors.market.cotacoes_intl import CotacoesIntlCollector
 from src.collectors.market.cbio_b3 import CbioB3Collector
+from src.collectors.market.chuva_previsao import ChuvaPrevisaoCollector
+from src.collectors.market.comex_export import ComexExportCollector
 from src.collectors.market.conab_cana import ConabCanaCollector
+from src.collectors.market.cotacoes_intl import CotacoesIntlCollector
 from src.collectors.market.cvm_financeiro import CvmFinanceiroCollector
+from src.collectors.market.sugar_intel_csv import COLETORES_SUGAR_INTEL
 from src.collectors.news.rss_setor import RssNoticiasCollector
 from src.persistence.db import get_engine, init_schema
 
@@ -37,15 +39,17 @@ def _preparar_catalogo() -> None:
 
 def coletores() -> list[Collector]:
     return [
-        BcbPtaxCollector(days=1825),
-        BcbMacroCollector(days=365),   # câmbio USD/BRL (~5 anos)
+        BcbPtaxCollector(days=1825),   # câmbio USD/BRL (~5 anos)
+        BcbMacroCollector(days=365),   # Selic, IPCA, IGP-M, CDI (~2 anos)
         AnpPrecosCollector(),          # preços de combustíveis (mês corrente)
         ComexExportCollector(),
         CotacoesIntlCollector(),
-        CbioB3Collector(),
-        ConabCanaCollector(),
+        CbioB3Collector(),             # CBIO (B3)
+        ConabCanaCollector(),          # safra de cana (CONAB)
+        ChuvaPrevisaoCollector(),      # previsão de chuva 14 dias (sugar-intel)
+        *[C() for C in COLETORES_SUGAR_INTEL],  # CEPEA, oil, UNICA, USDA (sugar-intel)
         CvmFinanceiroCollector(),
-        RssNoticiasCollector(),        # exportações de açúcar e etanol (24 meses)
+        RssNoticiasCollector(),        # radar de manchetes (RSS)
     ]
 
 
