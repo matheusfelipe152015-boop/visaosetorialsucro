@@ -33,35 +33,47 @@ SOURCE_CODE = "rss"
 # (código da fonte na plataforma, nome, [urls candidatas de feed])
 # (code da fonte, nome, urls candidatas). Nem todo portal publica RSS — os que
 # não responderem são simplesmente pulados (o coletor não falha por isso).
+# Google Notícias: feed público de busca. Cobre dezenas de veículos (inclusive os
+# que não têm RSS próprio). O link passa pelo Google e redireciona para a fonte.
+_GN = "https://news.google.com/rss/search?q={q}&hl=pt-BR&gl=BR&ceid=BR:pt-150"
+
+
+def _gn_site(dominio: str) -> str:
+    """Feed do Google restrito a um portal — usado quando o RSS próprio morre."""
+    return _GN.format(q=f"site:{dominio}")
+
+
+# Cada veículo tem uma lista de endereços tentados em ordem: primeiro o RSS
+# próprio, e por último o Google Notícias filtrado por domínio. Assim, se o
+# portal tirar o feed do ar (como novaCana, UDOP e Notícias Agrícolas fizeram),
+# as manchetes continuam chegando pelo Google.
 FEEDS: list[tuple[str, str, list[str]]] = [
     ("jornalcana", "JornalCana", [
         "https://jornalcana.com.br/feed/",
         "https://jornalcana.com.br/feed",
+        _gn_site("jornalcana.com.br"),
     ]),
     ("novaCana", "novaCana", [
         "https://www.novacana.com/rss/noticias",
         "https://www.novacana.com/feed/",
-        "https://www.novacana.com/rss.xml",
-        "https://www.novacana.com/noticias/feed/",
+        _gn_site("novacana.com"),
     ]),
     ("epbr", "epbr", [
         "https://epbr.com.br/feed/",
         "https://epbr.com.br/categoria/biocombustiveis/feed/",
+        _gn_site("epbr.com.br"),
     ]),
     ("noticiasagricolas", "Notícias Agrícolas", [
         "https://www.noticiasagricolas.com.br/rss/noticias/sucroenergetico.xml",
-        "https://www.noticiasagricolas.com.br/rss/sucroenergetico.xml",
         "https://www.noticiasagricolas.com.br/feed",
+        _gn_site("noticiasagricolas.com.br"),
     ]),
     ("udop", "UDOP", [
         "https://www.udop.com.br/rss/noticias.xml",
-        "https://www.udop.com.br/feed/",
+        _gn_site("udop.com.br"),
     ]),
 ]
 
-# Google Notícias: feed público de busca. Cobre dezenas de veículos (inclusive os
-# que não têm RSS próprio). O link passa pelo Google e redireciona para a fonte.
-_GN = "https://news.google.com/rss/search?q={q}&hl=pt-BR&gl=BR&ceid=BR:pt-150"
 BUSCAS_GOOGLE = [
     "usina+de+cana+OR+etanol+OR+açúcar+OR+sucroenergético",
     "Raízen+OR+%22São+Martinho%22+OR+%22Jalles+Machado%22+OR+Adecoagro+OR+Cosan+usina",
@@ -253,6 +265,14 @@ def upsert_noticias(artigos: list[dict]) -> int:
     return novos
 
 
+_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/126.0.0.0 Safari/537.36"),
+    "Accept": "application/rss+xml,application/xml,text/xml,*/*",
+}
+
+
 class RssNoticiasCollector:
     source_code = SOURCE_CODE
     version = "0.1.0"
@@ -264,7 +284,7 @@ class RssNoticiasCollector:
                 try:
                     resp = httpx.get(
                         url, timeout=12, follow_redirects=True,
-                        headers={"User-Agent": "visaosetorialsucro/0.1 (radar-setorial)"},
+                        headers=_HEADERS,
                     )
                     resp.raise_for_status()
                     achados = parse_feed(resp.content, code)
