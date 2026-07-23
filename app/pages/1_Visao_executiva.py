@@ -25,6 +25,7 @@ from src.formato import fmt_indicador, fmt_valor
 # PRECISAM aparecer marcadas — número plausível sem fonte é pior que
 # número nenhum (alguém pode citar em reunião achando que é real).
 FONTES_REAIS = {"bcb_sgs", "anp", "comex", "conab", "cvm", "yahoo", "b3"}
+from src.carteira_noticias import casar_carteira
 from src.persistence.db import fetch_df, init_schema
 from src.services.news import PERIODO_DIAS, TODAS, filter_articles
 from src.theme import apply_theme, fresh_badge
@@ -109,6 +110,15 @@ else:
     import pandas as _pd
     mentions = _pd.DataFrame(columns=["article_id", "company_code"])
     topics_map = _pd.DataFrame(columns=["article_id", "nome"])
+# cruzamento com a carteira de crédito (nomes do de-para nas manchetes)
+try:
+    carteira_map = casar_carteira(articles)
+except Exception:  # noqa: BLE001 — sem de-para carregado, o radar segue normal
+    import pandas as _pd_fallback
+    carteira_map = _pd_fallback.DataFrame(
+        columns=["article_id", "id_cliente", "grupo"])
+ids_carteira = set(carteira_map["article_id"]) if not carteira_map.empty else set()
+
 name_by_code = dict(zip(companies["code"], companies["nome"], strict=False))
 
 f1, f2, f3, f4, f5, f6 = st.columns([1.1, 1, 1, 1, 1, 1.2])
@@ -122,6 +132,7 @@ segmento = f3.pills("Segmento", segmentos, default=TODAS, key="f_segmento")
 empresa_nome = f4.pills("Empresa", empresas, default=TODAS, key="f_empresa")
 fonte = f5.pills("Fonte", fontes, default=TODAS, key="f_fonte")
 only_wl = f6.toggle("★ Apenas watchlist", key="f_wl")
+only_cart = f6.toggle("🎯 Apenas carteira", key="f_carteira")
 
 empresa_code = next((c for c, n in name_by_code.items() if n == empresa_nome), None)
 filt = filter_articles(
@@ -129,6 +140,8 @@ filt = filter_articles(
     periodo=periodo or "7 dias", regiao=regiao, segmento=segmento,
     empresa=empresa_code, fonte=fonte, only_watchlist=only_wl,
 )
+if only_cart:
+    filt = filt[filt["id"].isin(ids_carteira)]
 
 st.write("")
 left, right = st.columns([1.35, 1])
@@ -137,6 +150,14 @@ left, right = st.columns([1.35, 1])
 with left:
     rows = ""
     for _, n in filt.iterrows():
+        grupos_cli = (
+            carteira_map.loc[carteira_map["article_id"] == n["id"], "grupo"].unique()
+            if not carteira_map.empty else []
+        )
+        cli_chips = "".join(
+            f'<span class="tag" style="background:#14573A;color:#fff;'
+            f'border-color:#14573A">{g}</span>' for g in grupos_cli
+        )
         cos = mentions.loc[mentions["article_id"] == n["id"], "company_code"]
         co_chips = "".join(
             f'<span class="tag co">{name_by_code.get(c, c)}</span>' for c in cos
@@ -165,7 +186,7 @@ with left:
             f'<div style="padding:11px 0;border-bottom:1px solid #EFEBE0">'
             f'{titulo_html}'
             f'<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
-            f'{co_chips}{tp_chips}<span class="tag">{n["source_code"]}</span>'
+            f'{cli_chips}{co_chips}{tp_chips}<span class="tag">{n["source_code"]}</span>'
             + (f'<span class="src">{data_txt}</span>' if data_txt else "")
             + "</div></div>"
         )
