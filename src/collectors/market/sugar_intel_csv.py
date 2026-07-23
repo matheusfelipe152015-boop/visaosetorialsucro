@@ -283,9 +283,31 @@ class ConabEtanolMilhoCollector(_CsvIndicatorCollector):
                 for (_safra, produto), (_lev, d, v) in sorted(melhor.items())]
 
 
+# ── Açúcar NY nº 11 (contínuo SB=F) — substitui a dependência do Yahoo ────
+class Ny11ContinuoCollector(_CsvIndicatorCollector):
+    """Fechamento do contrato contínuo do açúcar NY nº 11, do arquivo da curva.
+
+    O coletor direto do Yahoo passou a ser bloqueado; este lê o mesmo dado pelo
+    CSV do sugar-intel, que já baixamos todo dia.
+    """
+
+    arquivo = "ny11_curva.csv"
+
+    def parse(self, texto):
+        out = []
+        for r in csv.DictReader(io.StringIO(texto)):
+            if (r.get("ticker_yahoo") or "").strip() != "SB=F":
+                continue
+            d = _data(r.get("data"))
+            v = _num(r.get("close"))
+            if d and v is not None:
+                out.append(_iv("sugar_ny11", d, v, "¢/lb", "USD", self._url()))
+        return out
+
+
 COLETORES_SUGAR_INTEL = [
     CepeaAcucarSpCollector, CepeaEtanolSpCollector, OilBrentCollector,
     UnicaQuinzenalCollector, UsdaAcucarCollector,
     CepeaEtanolPauliniaCollector, AnpVendasHidratadoCollector,
-    OilWtiCollector, ConabEtanolMilhoCollector,
+    OilWtiCollector, ConabEtanolMilhoCollector, Ny11ContinuoCollector,
 ]

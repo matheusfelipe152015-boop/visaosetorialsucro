@@ -48,10 +48,10 @@ INDICATORS = [
     ("igpm_mensal", "IGP-M (mês)", "Câmbio & macro", "% mês", None, "unit", "bcb_sgs", "monthly", 0),
     ("cdi_diario", "CDI", "Câmbio & macro", "% a.d.", None, "unit", "bcb_sgs", "daily", 0),
     # Petróleo & energia
-    ("brent", "Brent", "Petróleo & energia", "US$/bbl", "USD", "unit", "yahoo", "daily", 1),
+    ("brent", "Brent", "Petróleo & energia", "US$/bbl", "USD", "unit", "sugar_intel", "daily", 1),
     ("pld_sudeste", "PLD — Sudeste/CO", "Petróleo & energia", "R$/MWh", "BRL", "unit", "ccee", "weekly", 0),
     # Açúcar
-    ("sugar_ny11", "Açúcar NY nº 11", "Açúcar", "¢/lb", "USD", "unit", "yahoo", "daily", 1),
+    ("sugar_ny11", "Açúcar NY nº 11", "Açúcar", "¢/lb", "USD", "unit", "sugar_intel", "daily", 1),
     ("acucar_cristal_sp", "Açúcar cristal (SP)", "Açúcar", "R$/sc 50kg", "BRL", "unit", "cepea", "daily", 0),
     ("acucar_londres5", "Açúcar branco — Londres nº 5", "Açúcar", "US$/t", "USD", "unit", "ice", "daily", 0),
     # Etanol
