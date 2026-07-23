@@ -123,3 +123,68 @@ def resumo_safra_atual(df: pd.DataFrame) -> dict | None:
         "atr": ult["atr_kg_t_cana"],
         "mix_acucar": ult["mix_acucar_pct"],
     }
+
+
+# ── séries do banco: oferta × demanda mensal e etanol de milho ────────────
+
+def _df_sql(sql: str) -> pd.DataFrame:
+    from sqlalchemy import text as _text
+
+    from src.persistence.db import get_engine
+    with get_engine(readonly=True).connect() as conn:
+        return pd.read_sql_query(_text(sql), conn)
+
+
+def fig_snd_mensal() -> go.Figure | None:
+    """Entradas (produção) vs saídas (vendas) mensais de etanol + estoque."""
+    d = _df_sql("""SELECT serie, data_ref, valor FROM unica_snd
+                   WHERE serie IN ('Inflows Total (bi L)','Outflows Total (bi L)',
+                                   'Stock accumulated (bi L)')
+                   ORDER BY data_ref""")
+    if d.empty:
+        return None
+    d["data_ref"] = pd.to_datetime(d["data_ref"])
+    piv = d.pivot_table(index="data_ref", columns="serie", values="valor",
+                        aggfunc="last").sort_index()
+    piv = piv[piv.index >= piv.index.max() - pd.Timedelta(days=760)]
+    fig = go.Figure()
+    if "Inflows Total (bi L)" in piv.columns:
+        fig.add_bar(x=piv.index, y=piv["Inflows Total (bi L)"], name="Produção",
+                    marker_color=VERDE, offsetgroup="i")
+    if "Outflows Total (bi L)" in piv.columns:
+        fig.add_bar(x=piv.index, y=piv["Outflows Total (bi L)"], name="Vendas",
+                    marker_color=AMBAR, offsetgroup="o")
+    if "Stock accumulated (bi L)" in piv.columns:
+        fig.add_trace(go.Scatter(x=piv.index, y=piv["Stock accumulated (bi L)"],
+                                 name="Estoque acumulado", yaxis="y2",
+                                 mode="lines", line=dict(color="#B4462E", width=2)))
+    fig.update_layout(**_LAYOUT, height=340, barmode="group",
+                      yaxis_title="bi L no mês", xaxis_title="",
+                      yaxis2=dict(title="Estoque (bi L)", overlaying="y",
+                                  side="right", showgrid=False),
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig
+
+
+def fig_etanol_milho() -> go.Figure | None:
+    """Produção de etanol de milho no Brasil, por safra (anidro + hidratado)."""
+    d = _df_sql("""SELECT indicator_code AS c, data_referencia AS d, valor AS v
+                   FROM indicator_values
+                   WHERE indicator_code IN ('etanol_milho_anidro',
+                                            'etanol_milho_hidratado')
+                   ORDER BY data_referencia""")
+    if d.empty:
+        return None
+    d["safra"] = pd.to_datetime(d["d"]).dt.year.astype(str)
+    piv = d.pivot_table(index="safra", columns="c", values="v", aggfunc="last")
+    fig = go.Figure()
+    rotulos = {"etanol_milho_anidro": ("Anidro", VERDE),
+               "etanol_milho_hidratado": ("Hidratado", AMBAR)}
+    for code, (nome, cor) in rotulos.items():
+        if code in piv.columns:
+            fig.add_bar(x=piv.index, y=piv[code] / 1_000_000, name=nome,
+                        marker_color=cor)
+    fig.update_layout(**_LAYOUT, height=320, barmode="stack",
+                      yaxis_title="bilhões de litros", xaxis_title="Safra (ano inicial)",
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig

@@ -142,3 +142,68 @@ class AbicomPpiCollector:
 
 
 COLETORES_ETANOL = [B3EtanolCollector, BaseSpGoCollector, AbicomPpiCollector]
+
+
+# ── UNICA — oferta × demanda mensal (formato largo → longo) ───────────────
+_MESES_SAFRA = {"Abr": 4, "Mai": 5, "Jun": 6, "Jul": 7, "Ago": 8, "Set": 9,
+                "Out": 10, "Nov": 11, "Dez": 12, "Jan": 1, "Fev": 2, "Mar": 3}
+
+
+def _data_do_mes(safra: str, mes_nome: str):
+    """'25/26' + 'Abr' -> 2025-04-01 ; '25/26' + 'Jan' -> 2026-01-01."""
+    from datetime import date as _date
+    partes = str(safra or "").split("/")
+    if len(partes) != 2 or not partes[0].strip().isdigit():
+        return None
+    ano1 = 2000 + int(partes[0].strip())
+    mes = _MESES_SAFRA.get(mes_nome)
+    if not mes:
+        return None
+    ano = ano1 if mes >= 4 else ano1 + 1
+    return _date(ano, mes, 1)
+
+
+class UnicaSndCollector:
+    """Séries mensais da UNICA: entradas, saídas, estoque, moagem, mix, chuva."""
+
+    source_code = SOURCE_CODE
+    version = "0.1.0"
+
+    def _coletar(self):
+        linhas = _linhas("unica_snd.csv")
+        registros = []
+        for r in linhas:
+            serie = (r.get("serie") or "").strip()
+            safra = (r.get("safra") or "").strip()
+            if not serie or not safra:
+                continue
+            for mes_nome in _MESES_SAFRA:
+                v = _num(r.get(mes_nome))
+                d = _data_do_mes(safra, mes_nome)
+                if v is None or d is None:
+                    continue
+                registros.append({"serie": serie, "safra": safra, "d": d, "v": v})
+
+        n = 0
+        with get_engine().begin() as conn:
+            for x in registros:
+                p = {"id": uuid.uuid4().hex, **x, "dc": datetime.utcnow()}
+                existe = conn.execute(
+                    text("SELECT 1 FROM unica_snd WHERE serie=:serie AND safra=:safra "
+                         "AND data_ref=:d"),
+                    {"serie": x["serie"], "safra": x["safra"], "d": x["d"]}).first()
+                if existe:
+                    conn.execute(text("UPDATE unica_snd SET valor=:v WHERE serie=:serie "
+                                      "AND safra=:safra AND data_ref=:d"), p)
+                else:
+                    conn.execute(text("""INSERT INTO unica_snd
+                        (id,serie,safra,data_ref,valor,data_coleta)
+                        VALUES(:id,:serie,:safra,:d,:v,:dc)"""), p)
+                    n += 1
+        return len(registros), n
+
+    def run(self):
+        return _rodar("unica_snd", self._coletar)
+
+
+COLETORES_ETANOL.append(UnicaSndCollector)

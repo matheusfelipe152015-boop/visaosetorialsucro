@@ -244,9 +244,48 @@ class AnpVendasHidratadoCollector(_CsvIndicatorCollector):
                 for d, v in sorted(totais.items())]
 
 
+# ── CONAB — etanol de milho (Brasil), por safra ───────────────────────────
+class ConabEtanolMilhoCollector(_CsvIndicatorCollector):
+    """Produção de etanol de milho no Brasil — último levantamento de cada safra."""
+
+    arquivo = "conab_safra.csv"
+    _MAPA = {
+        "etanol_milho_total": "etanol_milho_total",
+        "etanol_milho_anidro": "etanol_milho_anidro",
+        "etanol_milho_hidratado": "etanol_milho_hidratado",
+    }
+
+    def parse(self, texto):
+        # guarda o maior levantamento por (safra, produto)
+        melhor: dict[tuple, tuple] = {}
+        for r in csv.DictReader(io.StringIO(texto)):
+            if (r.get("unidade_geo") or "").strip().upper() != "BRASIL":
+                continue
+            produto = (r.get("produto") or "").strip().lower()
+            if produto not in self._MAPA:
+                continue
+            if (r.get("metrica") or "").strip().lower() != "producao_mil_l":
+                continue
+            safra = (r.get("safra") or "").strip()
+            ano = safra[:4]
+            v = _num(r.get("valor"))
+            if not ano.isdigit() or v is None:
+                continue
+            try:
+                lev = int(str(r.get("levantamento") or 0).strip() or 0)
+            except ValueError:
+                lev = 0
+            chave = (safra, produto)
+            if chave not in melhor or lev >= melhor[chave][0]:
+                melhor[chave] = (lev, date(int(ano), 4, 1), v)
+
+        return [_iv(self._MAPA[produto], d, v, "mil L", None, self._url())
+                for (_safra, produto), (_lev, d, v) in sorted(melhor.items())]
+
+
 COLETORES_SUGAR_INTEL = [
     CepeaAcucarSpCollector, CepeaEtanolSpCollector, OilBrentCollector,
     UnicaQuinzenalCollector, UsdaAcucarCollector,
     CepeaEtanolPauliniaCollector, AnpVendasHidratadoCollector,
-    OilWtiCollector,
+    OilWtiCollector, ConabEtanolMilhoCollector,
 ]

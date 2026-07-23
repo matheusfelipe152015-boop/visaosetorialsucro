@@ -28,8 +28,10 @@ from src.persistence.db import fetch_df, init_schema
 from src.safra_visual import (
     carregar_unica,
     fig_atr,
+    fig_etanol_milho,
     fig_mix,
     fig_moagem,
+    fig_snd_mensal,
     resumo_safra_atual,
 )
 from src.theme import apply_theme
@@ -125,6 +127,22 @@ if _unica is not None and not _unica.empty:
                 unsafe_allow_html=True)
     st.divider()
 
+_sec_safra("Etanol — oferta × demanda mensal",
+           "Centro-Sul: produção vs vendas e o estoque acumulado (UNICA)")
+_f = fig_snd_mensal()
+if _f:
+    st.plotly_chart(_f, width="stretch")
+else:
+    st.caption("Rode o coletor unica_snd para preencher.")
+
+_sec_safra("Etanol de milho — Brasil", "produção por safra (CONAB)")
+_f = fig_etanol_milho()
+if _f:
+    st.plotly_chart(_f, width="stretch")
+else:
+    st.caption("Rode o coletor de etanol de milho para preencher.")
+
+st.divider()
 st.markdown('<div class="eyebrow">Mapa por estado — CONAB</div>', unsafe_allow_html=True)
 
 dados_todos = fetch_df(
