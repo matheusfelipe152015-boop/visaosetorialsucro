@@ -25,6 +25,13 @@ import streamlit as st
 
 from src.app_auth import exigir_login
 from src.persistence.db import fetch_df, init_schema
+from src.safra_visual import (
+    carregar_unica,
+    fig_atr,
+    fig_mix,
+    fig_moagem,
+    resumo_safra_atual,
+)
 from src.theme import apply_theme
 
 st.set_page_config(page_title="VISÃO SETORIAL SUCRO · Safra", page_icon="⬡", layout="wide")
@@ -50,6 +57,75 @@ METRICAS = {
 
 st.markdown('<div class="eyebrow">07 · Safra — produção por estado</div>', unsafe_allow_html=True)
 st.title("Mapa da safra")
+
+# ══ UNICA — moagem, mix e ATR do Centro-Sul ═══════════════════════════════
+
+
+def _sec_safra(titulo: str, sub: str = "") -> None:
+    linha_sub = (f'<div style="font-size:13px;color:#5C6B63;margin-top:2px">{sub}</div>'
+                 if sub else "")
+    st.markdown(
+        f'<div style="margin:14px 0 8px"><div style="font-size:16px;font-weight:800;'
+        f'color:#18241F">{titulo}</div>{linha_sub}<div style="height:2px;'
+        f'background:#14573A;width:40px;margin-top:6px;border-radius:2px"></div></div>',
+        unsafe_allow_html=True)
+
+
+try:
+    _unica = carregar_unica()
+except Exception:  # noqa: BLE001 — se o download falhar, segue com o mapa
+    _unica = None
+
+if _unica is not None and not _unica.empty:
+    _sec_safra("Centro-Sul — UNICA", "moagem, mix e ATR por safra (acumulado)")
+    _r = resumo_safra_atual(_unica)
+    if _r:
+        _cana = f"{_r['cana_mil_t'] / 1000:,.1f} mi t".replace(",", ".")
+        _ac = f"{_r['acucar_mil_t'] / 1000:,.1f} mi t".replace(",", ".")
+        _et = f"{_r['etanol_mil_m3'] / 1000:,.1f} mi m³".replace(",", ".")
+        _cards = [
+            ("Safra", str(_r["safra"]), ""),
+            ("Cana moída", _cana, "acumulado"),
+            ("Açúcar", _ac, "acumulado"),
+            ("Etanol", _et, "acumulado"),
+            ("ATR médio", f"{_r['atr']:.1f} kg/t".replace(".", ","), ""),
+            ("Mix açúcar", f"{_r['mix_acucar']:.1f}%".replace(".", ","), "do ATR"),
+        ]
+        _html = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:4px 0 14px">'
+        for _rot, _val, _sub in _cards:
+            _html += (f'<div style="flex:1;min-width:130px;background:#fff;'
+                      f'border:1px solid #E6E2D6;border-radius:12px;padding:12px 14px">'
+                      f'<div style="font-size:11px;letter-spacing:.06em;'
+                      f'text-transform:uppercase;color:#5C6B63">{_rot}</div>'
+                      f'<div style="font-size:19px;font-weight:800;color:#18241F;'
+                      f'margin-top:3px">{_val}</div>'
+                      f'<div style="font-size:11px;color:#5C6B63">{_sub}</div></div>')
+        _html += "</div>"
+        st.markdown(_html, unsafe_allow_html=True)
+
+    _c1, _c2, _c3 = st.columns(3)
+    with _c1:
+        st.markdown("**Cana moída por safra**")
+        _f = fig_moagem(_unica)
+        if _f:
+            st.plotly_chart(_f, width="stretch")
+    with _c2:
+        st.markdown("**Mix açúcar × etanol**")
+        _f = fig_mix(_unica)
+        if _f:
+            st.plotly_chart(_f, width="stretch")
+    with _c3:
+        st.markdown("**ATR médio**")
+        _f = fig_atr(_unica)
+        if _f:
+            st.plotly_chart(_f, width="stretch")
+
+    st.markdown('<div class="src" style="margin:4px 0 8px">Fonte: UNICA — '
+                'compilado por sugar-intel (dados abertos).</div>',
+                unsafe_allow_html=True)
+    st.divider()
+
+st.markdown('<div class="eyebrow">Mapa por estado — CONAB</div>', unsafe_allow_html=True)
 
 dados_todos = fetch_df(
     "SELECT uf, regiao, safra, metric, valor, unidade FROM safra_uf WHERE source_code = 'conab'"

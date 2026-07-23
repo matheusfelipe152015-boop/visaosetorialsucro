@@ -74,22 +74,36 @@ for titulo, itens in _SECOES.items():
     )
     st.markdown(kpi_indicadores(itens), unsafe_allow_html=True)
 
-# gráfico do indicador em destaque (escolhido pelo usuário)
+# gráficos de histórico — todos na tela, 2 por linha (sem escolher)
 st.markdown(
     '<div style="font-size:15px;font-weight:800;color:#18241F;margin:16px 0 6px">'
     "Histórico</div>", unsafe_allow_html=True,
 )
 _todos = [(c, n) for sec in _SECOES.values() for (c, n, _u) in sec]
-_rotulos = {n: c for c, n in _todos}
-_esc = st.selectbox("Indicador", list(_rotulos.keys()), key="ind_graf")
-_serie_g = serie_para_grafico(_rotulos[_esc], dias=365)
-if _serie_g.empty:
-    st.caption("Este indicador ainda não tem histórico coletado.")
+_com_dado = []
+for _code, _nome in _todos:
+    _s = serie_para_grafico(_code, dias=365)
+    if not _s.empty:
+        _com_dado.append((_nome, _s))
+
+if not _com_dado:
+    st.caption("Ainda não há histórico coletado para estes indicadores.")
 else:
-    _fig = _px.line(_serie_g, x="Data", y="Valor", color_discrete_sequence=["#14573A"])
-    _fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                       height=300, margin=dict(l=10, r=10, t=10, b=10))
-    st.plotly_chart(_fig, width="stretch")
+    for _i in range(0, len(_com_dado), 2):
+        _cols = st.columns(2)
+        for _j, (_nome, _s) in enumerate(_com_dado[_i:_i + 2]):
+            with _cols[_j]:
+                st.markdown(f'<div style="font-size:13px;font-weight:700;'
+                            f'color:#18241F;margin-bottom:2px">{_nome}</div>',
+                            unsafe_allow_html=True)
+                _fig = _px.line(_s, x="Data", y="Valor",
+                                color_discrete_sequence=["#14573A"])
+                _fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",
+                                   plot_bgcolor="rgba(0,0,0,0)", height=240,
+                                   margin=dict(l=10, r=10, t=6, b=10),
+                                   xaxis_title="", yaxis_title="")
+                st.plotly_chart(_fig, width="stretch",
+                                key=f"hist_{_i}_{_j}")
 
 st.divider()
 st.markdown('<div class="eyebrow">Catálogo completo</div>', unsafe_allow_html=True)
