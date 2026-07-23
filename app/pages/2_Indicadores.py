@@ -52,6 +52,7 @@ _SECOES = {
     ],
     "Petróleo & câmbio": [
         ("brent", "Brent", "US$/bbl"),
+        ("wti", "WTI", "US$/bbl"),
         ("usd_brl", "USD/BRL", "R$"),
         ("selic_meta", "Selic meta", "% a.a."),
     ],

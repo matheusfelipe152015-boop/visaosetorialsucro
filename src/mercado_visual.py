@@ -211,3 +211,55 @@ def fig_vendas_hidratado() -> go.Figure | None:
     fig.update_traces(hovertemplate="%{x|%m/%Y}<br>%{y:,.0f} m³<extra></extra>")
     fig.update_layout(**_LAYOUT, height=300, xaxis_title="", yaxis_title="m³")
     return fig
+
+
+def fig_basis_spread() -> go.Figure | None:
+    """Spread: ESALQ menos NY equivalente (R$/sc) — prêmio do mercado interno."""
+    d = _df("SELECT data_ref, esalq_rs_sc50kg, ny_equiv_rs_sc50kg FROM basis_acucar "
+            "WHERE esalq_rs_sc50kg IS NOT NULL AND ny_equiv_rs_sc50kg IS NOT NULL "
+            "ORDER BY data_ref")
+    if d.empty:
+        return None
+    d["data_ref"] = pd.to_datetime(d["data_ref"])
+    d = d[d["data_ref"] >= d["data_ref"].max() - pd.Timedelta(days=730)]
+    d["spread"] = d["esalq_rs_sc50kg"] - d["ny_equiv_rs_sc50kg"]
+    fig = go.Figure(go.Scatter(
+        x=d["data_ref"], y=d["spread"], mode="lines",
+        line=dict(color=VERDE, width=2), fill="tozeroy",
+        fillcolor="rgba(20,87,58,0.10)",
+        hovertemplate="%{x|%d/%m/%Y}<br>Base R$ %{y:,.2f}/sc<extra></extra>"))
+    fig.add_hline(y=0, line_color=TINTA_SUAVE, line_width=1)
+    fig.update_layout(**_LAYOUT, height=300, xaxis_title="",
+                      yaxis_title="ESALQ − NY equiv. (R$/sc)")
+    return fig
+
+
+def fig_usda_balanco() -> go.Figure | None:
+    """Balanço mundial de açúcar (USDA): produção vs consumo + estoque/uso."""
+    d = _df("""SELECT data_referencia AS d, indicator_code AS c, valor AS v
+               FROM indicator_values
+               WHERE indicator_code IN ('usda_acucar_prod','usda_acucar_consumo',
+                                        'usda_stock_to_use')
+               ORDER BY data_referencia""")
+    if d.empty:
+        return None
+    d["ano"] = pd.to_datetime(d["d"]).dt.year
+    piv = d.pivot_table(index="ano", columns="c", values="v", aggfunc="last")
+    if "usda_acucar_prod" not in piv.columns:
+        return None
+    fig = go.Figure()
+    fig.add_bar(x=piv.index, y=piv["usda_acucar_prod"], name="Produção",
+                marker_color=VERDE, offsetgroup="p")
+    if "usda_acucar_consumo" in piv.columns:
+        fig.add_bar(x=piv.index, y=piv["usda_acucar_consumo"], name="Consumo",
+                    marker_color=AMBAR, offsetgroup="c")
+    if "usda_stock_to_use" in piv.columns:
+        fig.add_trace(go.Scatter(x=piv.index, y=piv["usda_stock_to_use"],
+                                 name="Estoque/uso (%)", yaxis="y2", mode="lines+markers",
+                                 line=dict(color=TERRACOTA, width=2)))
+    fig.update_layout(**_LAYOUT, height=340, barmode="group",
+                      yaxis_title="mil t", xaxis_title="",
+                      yaxis2=dict(title="Estoque/uso (%)", overlaying="y",
+                                  side="right", showgrid=False),
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig

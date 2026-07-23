@@ -139,6 +139,20 @@ class OilBrentCollector(_CsvIndicatorCollector):
         return out
 
 
+# ── WTI — US$/bbl (mesma fonte oil.csv) ───────────────────────────────────
+class OilWtiCollector(_CsvIndicatorCollector):
+    arquivo = "oil.csv"
+
+    def parse(self, texto):
+        out = []
+        for r in csv.DictReader(io.StringIO(texto)):
+            d = _data(r.get("data"))
+            v = _num(r.get("wti_usd_bbl"))
+            if d and v is not None:
+                out.append(_iv("wti", d, v, "US$/bbl", "USD", self._url()))
+        return out
+
+
 # ── UNICA quinzenal — moagem, mix e ATR (Centro-Sul, acumulado) ───────────
 class UnicaQuinzenalCollector(_CsvIndicatorCollector):
     arquivo = "unica_quinzenal.csv"
@@ -176,12 +190,16 @@ class UsdaAcucarCollector(_CsvIndicatorCollector):
             if not ano.isdigit():
                 continue
             d = date(int(ano), 12, 31)
-            prod = _num(r.get("producao"))
-            est = _num(r.get("estoque_final"))
-            if prod is not None:
-                out.append(_iv("usda_acucar_prod", d, prod, "mil t", None, self._url()))
-            if est is not None:
-                out.append(_iv("usda_acucar_estoque", d, est, "mil t", None, self._url()))
+            campos = [
+                ("producao", "usda_acucar_prod", "mil t"),
+                ("estoque_final", "usda_acucar_estoque", "mil t"),
+                ("consumo", "usda_acucar_consumo", "mil t"),
+                ("stock_to_use_pct", "usda_stock_to_use", "%"),
+            ]
+            for coluna, code, unidade in campos:
+                v = _num(r.get(coluna))
+                if v is not None:
+                    out.append(_iv(code, d, v, unidade, None, self._url()))
         return out
 
 
@@ -230,4 +248,5 @@ COLETORES_SUGAR_INTEL = [
     CepeaAcucarSpCollector, CepeaEtanolSpCollector, OilBrentCollector,
     UnicaQuinzenalCollector, UsdaAcucarCollector,
     CepeaEtanolPauliniaCollector, AnpVendasHidratadoCollector,
+    OilWtiCollector,
 ]

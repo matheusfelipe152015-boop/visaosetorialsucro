@@ -27,10 +27,12 @@ from src.mercado_visual import (
     fig_b3_curva,
     fig_base_sp_go,
     fig_basis,
+    fig_basis_spread,
     fig_cftc,
     fig_curva_ny11,
     fig_finviz,
     fig_paulinia,
+    fig_usda_balanco,
     fig_vendas_hidratado,
 )
 from src.persistence.db import fetch_df, init_schema
@@ -96,6 +98,20 @@ if _f:
     st.plotly_chart(_f, width="stretch")
 else:
     st.caption("Rode o coletor de basis para preencher.")
+
+_b1, _b2 = st.columns(2)
+with _b1:
+    st.markdown("**Base do açúcar — ESALQ menos NY equivalente**")
+    _f = fig_basis_spread()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+with _b2:
+    st.markdown("**Balanço mundial de açúcar (USDA)**")
+    _f = fig_usda_balanco()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+    else:
+        st.caption("Rode o coletor USDA para preencher.")
 
 _sec("Etanol — preço, curva e paridade", "hidratado Paulínia, B3, base regional e ABICOM")
 _e1, _e2 = st.columns(2)
