@@ -259,3 +259,45 @@ COLETORES_MERCADO = [
     CftcSugarCollector, Ny11CurvaCollector, BasisAcucarCollector,
     FinvizCollector, EnsoCollector,
 ]
+
+
+# ── IRI — pluma de previsão do ENSO (snapshot da emissão atual) ───────────
+class IriPlumeCollector:
+    """Projeções de anomalia Niño 3.4 por modelo, trimestre a trimestre."""
+
+    source_code = SOURCE_CODE
+    version = "0.1.0"
+
+    def _coletar(self):
+        texto = _baixar("iri_plume.csv")
+        linhas = list(csv.DictReader(io.StringIO(texto)))
+        n = 0
+        with get_engine().begin() as conn:
+            conn.execute(text("DELETE FROM iri_plume"))  # snapshot da emissão atual
+            for r in linhas:
+                d = _data(r.get("data_prev"))
+                modelo = (r.get("modelo") or "").strip()
+                if not d or not modelo:
+                    continue
+                try:
+                    passo = int(str(r.get("passo") or 0).strip() or 0)
+                except ValueError:
+                    passo = 0
+                conn.execute(text("""INSERT INTO iri_plume
+                    (id,data_coleta,emissao,passo,estacao,data_prev,modelo,tipo,
+                     nino34_anom_c)
+                    VALUES(:id,:dc,:em,:pa,:es,:d,:mo,:ti,:v)"""),
+                    {"id": uuid.uuid4().hex,
+                     "dc": _data(r.get("data_coleta")) or date.today(),
+                     "em": (r.get("emissao") or "").strip(), "pa": passo,
+                     "es": (r.get("estacao") or "").strip(), "d": d, "mo": modelo,
+                     "ti": (r.get("tipo") or "").strip(),
+                     "v": _num(r.get("nino34_anom_C"))})
+                n += 1
+        return len(linhas), n
+
+    def run(self):
+        return _rodar("iri_plume", self._coletar)
+
+
+COLETORES_MERCADO.append(IriPlumeCollector)

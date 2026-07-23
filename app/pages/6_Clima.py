@@ -27,6 +27,12 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.app_auth import exigir_login
+from src.clima_visual import (
+    fig_chuva_acumulada,
+    fig_chuva_heatmap,
+    fig_iri_plume,
+    resumo_chuva,
+)
 from src.persistence.db import fetch_df, init_schema
 from src.services.chuva import REGIOES, anomalia, classifica_anomalia
 from src.theme import apply_theme, plotly_template
@@ -47,6 +53,49 @@ def carrega_geo() -> dict:
 
 st.markdown('<div class="eyebrow">06 · Clima — Chuva</div>', unsafe_allow_html=True)
 st.title("Chuva por região e estado")
+
+# ══ Previsão 14 dias e pluma do ENSO (sugar-intel) ════════════════════════
+
+def _sec_clima(titulo: str, sub: str = "") -> None:
+    linha_sub = (f'<div style="font-size:13px;color:#5C6B63;margin-top:2px">{sub}</div>'
+                 if sub else "")
+    st.markdown(
+        f'<div style="margin:16px 0 8px"><div style="font-size:16px;font-weight:800;'
+        f'color:#18241F">{titulo}</div>{linha_sub}<div style="height:2px;'
+        f'background:#14573A;width:40px;margin-top:6px;border-radius:2px"></div></div>',
+        unsafe_allow_html=True)
+
+
+_rc = resumo_chuva()
+if _rc:
+    _sec_clima("Previsão de chuva — 14 dias",
+               f"cinturão canavieiro e portos · {_rc['ini'].strftime('%d/%m')} a "
+               f"{_rc['fim'].strftime('%d/%m')} · média de "
+               f"{_rc['media_mm']:.0f} mm por polo".replace(".", ","))
+    _c1, _c2 = st.columns([3, 2])
+    with _c1:
+        _f = fig_chuva_heatmap()
+        if _f:
+            st.plotly_chart(_f, width="stretch")
+    with _c2:
+        st.markdown("**Acumulado em 14 dias**")
+        _f = fig_chuva_acumulada()
+        if _f:
+            st.plotly_chart(_f, width="stretch")
+    st.markdown('<div class="src">Fonte: previsão Open-Meteo, compilada por '
+                'sugar-intel.</div>', unsafe_allow_html=True)
+
+_f = fig_iri_plume()
+if _f:
+    _sec_clima("El Niño / La Niña — pluma de previsão",
+               "projeções de anomalia Niño 3.4 pelos modelos IRI/CCSR")
+    st.plotly_chart(_f, width="stretch")
+    st.markdown('<div class="src">Fonte: IRI/CCSR e NOAA CPC, compilado por '
+                'sugar-intel.</div>', unsafe_allow_html=True)
+
+st.divider()
+st.markdown('<div class="eyebrow">Chuva observada — INMET</div>',
+            unsafe_allow_html=True)
 
 is_demo = fetch_df(
     "SELECT COUNT(*) c FROM rainfall WHERE collector_version='demo'"
