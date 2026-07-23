@@ -167,15 +167,22 @@ class UnicaQuinzenalCollector(_CsvIndicatorCollector):
             d = _data(r.get("quinzena_fim"))
             if not d:
                 continue
-            moagem = _num(r.get("cana_mil_t"))
-            mix_ac = _num(r.get("mix_acucar_pct"))
-            atr = _num(r.get("atr_kg_t_cana"))
-            if moagem is not None:
-                out.append(_iv("moagem_cs", d, moagem, "mil t", None, self._url()))
-            if mix_ac is not None:
-                out.append(_iv("mix_acucar_etanol", d, mix_ac, "%", None, self._url()))
-            if atr is not None:
-                out.append(_iv("atr_medio", d, atr, "kg/t", None, self._url()))
+            campos = [
+                ("cana_mil_t", "moagem_cs", "Mt"),
+                ("mix_acucar_pct", "mix_acucar_etanol", "%"),
+                ("atr_kg_t_cana", "atr_medio", "kg/t"),
+                ("acucar_mil_t", "producao_acucar", "Mt"),
+                ("etanol_total_mil_m3", "producao_etanol", "bi L"),
+            ]
+            # o catálogo pede Mt e bilhões de litros; o CSV traz mil t e mil m³
+            escala_mil = {"moagem_cs", "producao_acucar", "producao_etanol"}
+            for coluna, code, unidade in campos:
+                v = _num(r.get(coluna))
+                if v is None:
+                    continue
+                if code in escala_mil:
+                    v = v / 1000
+                out.append(_iv(code, d, v, unidade, None, self._url()))
         return out
 
 

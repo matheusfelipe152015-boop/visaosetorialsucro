@@ -47,6 +47,7 @@ _SECOES = {
     ],
     "Etanol": [
         ("etanol_hidratado", "Hidratado (SP)", "R$/L"),
+        ("etanol_paulinia", "Hidratado Paulínia", "R$/m³"),
         ("etanol_anidro_sp", "Anidro (SP)", "R$/L"),
         ("preco_etanol", "Etanol revenda", "R$/L"),
     ],

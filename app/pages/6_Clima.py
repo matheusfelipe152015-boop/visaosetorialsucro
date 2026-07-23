@@ -29,6 +29,7 @@ import streamlit as st
 from src.app_auth import exigir_login
 from src.clima_visual import (
     fig_chuva_acumulada,
+    fig_chuva_centro_sul,
     fig_chuva_heatmap,
     fig_iri_plume,
     resumo_chuva,
@@ -84,6 +85,12 @@ if _rc:
             st.plotly_chart(_f, width="stretch")
     st.markdown('<div class="src">Fonte: previsão Open-Meteo, compilada por '
                 'sugar-intel.</div>', unsafe_allow_html=True)
+
+_f = fig_chuva_centro_sul()
+if _f:
+    _sec_clima("Chuva observada no Centro-Sul",
+               "acumulado mensal e o polo de referência em SP (UNICA)")
+    st.plotly_chart(_f, width="stretch")
 
 _f = fig_iri_plume()
 if _f:

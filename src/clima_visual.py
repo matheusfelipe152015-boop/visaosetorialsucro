@@ -132,3 +132,26 @@ def resumo_chuva() -> dict | None:
     cidades = int(linha["cidades"]) or 1
     return {"ini": pd.to_datetime(linha["ini"]), "fim": pd.to_datetime(linha["fim"]),
             "cidades": cidades, "media_mm": float(linha["total"]) / cidades}
+
+
+def fig_chuva_centro_sul() -> go.Figure | None:
+    """Chuva mensal observada no Centro-Sul e no polo de referência (SP)."""
+    d = _df("""SELECT serie, data_ref, valor FROM unica_snd
+               WHERE serie IN ('Rainfall CS (mm)','Rainfall SP benchmark (mm)')
+               ORDER BY data_ref""")
+    if d.empty:
+        return None
+    d["data_ref"] = pd.to_datetime(d["data_ref"])
+    piv = d.pivot_table(index="data_ref", columns="serie", values="valor",
+                        aggfunc="last").sort_index()
+    fig = go.Figure()
+    if "Rainfall CS (mm)" in piv.columns:
+        fig.add_bar(x=piv.index, y=piv["Rainfall CS (mm)"], name="Centro-Sul",
+                    marker_color=AZUL)
+    if "Rainfall SP benchmark (mm)" in piv.columns:
+        fig.add_trace(go.Scatter(x=piv.index, y=piv["Rainfall SP benchmark (mm)"],
+                                 name="Referência SP", mode="lines+markers",
+                                 line=dict(color=VERDE, width=2)))
+    fig.update_layout(**_LAYOUT, height=300, xaxis_title="", yaxis_title="mm no mês",
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig

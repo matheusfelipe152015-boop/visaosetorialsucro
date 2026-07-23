@@ -188,3 +188,126 @@ def fig_etanol_milho() -> go.Figure | None:
                       yaxis_title="bilhões de litros", xaxis_title="Safra (ano inicial)",
                       legend=dict(orientation="h", y=1.02, x=0))
     return fig
+
+
+def _snd(series: list[str]) -> pd.DataFrame:
+    """Séries mensais da UNICA (tabela unica_snd) em formato de colunas."""
+    lista = ",".join(f"'{s}'" for s in series)
+    d = _df_sql(f"SELECT serie, data_ref, valor FROM unica_snd "
+                f"WHERE serie IN ({lista}) ORDER BY data_ref")
+    if d.empty:
+        return d
+    d["data_ref"] = pd.to_datetime(d["data_ref"])
+    return d.pivot_table(index="data_ref", columns="serie", values="valor",
+                         aggfunc="last").sort_index()
+
+
+def fig_snd_moagem_mix() -> go.Figure | None:
+    """Moagem e açúcar produzidos por mês, com o mix no eixo direito."""
+    piv = _snd(["Cane crush (Mt)", "Sugar (Mt)", "Sugar mix (%)"])
+    if piv.empty:
+        return None
+    fig = go.Figure()
+    if "Cane crush (Mt)" in piv.columns:
+        fig.add_bar(x=piv.index, y=piv["Cane crush (Mt)"], name="Cana moída",
+                    marker_color=VERDE, offsetgroup="c")
+    if "Sugar (Mt)" in piv.columns:
+        fig.add_bar(x=piv.index, y=piv["Sugar (Mt)"], name="Açúcar",
+                    marker_color=AMBAR, offsetgroup="a")
+    if "Sugar mix (%)" in piv.columns:
+        fig.add_trace(go.Scatter(x=piv.index, y=piv["Sugar mix (%)"],
+                                 name="Mix açúcar (%)", yaxis="y2", mode="lines",
+                                 line=dict(color="#B4462E", width=2)))
+    fig.update_layout(**_LAYOUT, height=340, barmode="group",
+                      yaxis_title="milhões de toneladas", xaxis_title="",
+                      yaxis2=dict(title="Mix (%)", overlaying="y", side="right",
+                                  showgrid=False),
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig
+
+
+def fig_snd_anidro_hidratado() -> go.Figure | None:
+    """Produção mensal de etanol separada em anidro e hidratado."""
+    piv = _snd(["Inflows Anhydrous (bi L)", "Inflows Hydrous (bi L)"])
+    if piv.empty:
+        return None
+    fig = go.Figure()
+    rotulos = {"Inflows Anhydrous (bi L)": ("Anidro", VERDE),
+               "Inflows Hydrous (bi L)": ("Hidratado", AMBAR)}
+    for col, (nome, cor) in rotulos.items():
+        if col in piv.columns:
+            fig.add_bar(x=piv.index, y=piv[col], name=nome, marker_color=cor)
+    fig.update_layout(**_LAYOUT, height=320, barmode="stack",
+                      yaxis_title="bi L no mês", xaxis_title="",
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig
+
+
+def fig_snd_atr() -> go.Figure | None:
+    """ATR médio mensal (kg por tonelada de cana)."""
+    piv = _snd(["Avg ATR (kg/t)"])
+    if piv.empty or "Avg ATR (kg/t)" not in piv.columns:
+        return None
+    fig = px.line(x=piv.index, y=piv["Avg ATR (kg/t)"], markers=True,
+                  color_discrete_sequence=[VERDE])
+    fig.update_layout(**_LAYOUT, height=300, xaxis_title="",
+                      yaxis_title="ATR (kg/t cana)")
+    return fig
+
+
+def _serie_snd(nomes: list[str]) -> pd.DataFrame:
+    lista = ",".join(f"'{n}'" for n in nomes)
+    d = _df_sql(f"SELECT serie, data_ref, valor FROM unica_snd WHERE serie IN ({lista})")
+    if d.empty:
+        return d
+    d["data_ref"] = pd.to_datetime(d["data_ref"])
+    return d.pivot_table(index="data_ref", columns="serie", values="valor",
+                         aggfunc="last").sort_index()
+
+
+def fig_moagem_mensal() -> go.Figure | None:
+    """Cana moída mês a mês, com o mix de açúcar sobreposto."""
+    piv = _serie_snd(["Cane crush (Mt)", "Sugar mix (%)"])
+    if piv.empty or "Cane crush (Mt)" not in piv.columns:
+        return None
+    fig = go.Figure()
+    fig.add_bar(x=piv.index, y=piv["Cane crush (Mt)"], name="Cana moída",
+                marker_color=VERDE)
+    if "Sugar mix (%)" in piv.columns:
+        fig.add_trace(go.Scatter(x=piv.index, y=piv["Sugar mix (%)"],
+                                 name="Mix açúcar", yaxis="y2", mode="lines+markers",
+                                 line=dict(color=AMBAR, width=2)))
+    fig.update_layout(**_LAYOUT, height=320, yaxis_title="Mt no mês", xaxis_title="",
+                      yaxis2=dict(title="Mix açúcar (%)", overlaying="y",
+                                  side="right", showgrid=False),
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig
+
+
+def fig_atr_chuva_mensal() -> go.Figure | None:
+    """ATR médio do mês contra a chuva no Centro-Sul."""
+    piv = _serie_snd(["Avg ATR (kg/t)", "Rainfall CS (mm)"])
+    if piv.empty or "Avg ATR (kg/t)" not in piv.columns:
+        return None
+    fig = go.Figure()
+    if "Rainfall CS (mm)" in piv.columns:
+        fig.add_bar(x=piv.index, y=piv["Rainfall CS (mm)"], name="Chuva (CS)",
+                    marker_color="#9FC0D4", yaxis="y2")
+    fig.add_trace(go.Scatter(x=piv.index, y=piv["Avg ATR (kg/t)"], name="ATR médio",
+                             mode="lines+markers", line=dict(color=VERDE, width=2.5)))
+    fig.update_layout(**_LAYOUT, height=320, yaxis_title="ATR (kg/t)", xaxis_title="",
+                      yaxis2=dict(title="Chuva (mm)", overlaying="y", side="right",
+                                  showgrid=False),
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig
+
+
+def fig_acucar_mensal() -> go.Figure | None:
+    """Produção mensal de açúcar (Mt)."""
+    piv = _serie_snd(["Sugar (Mt)"])
+    if piv.empty or "Sugar (Mt)" not in piv.columns:
+        return None
+    fig = px.bar(x=piv.index, y=piv["Sugar (Mt)"], color_discrete_sequence=[AMBAR])
+    fig.update_traces(hovertemplate="%{x|%m/%Y}<br>%{y:.2f} Mt<extra></extra>")
+    fig.update_layout(**_LAYOUT, height=300, yaxis_title="Mt no mês", xaxis_title="")
+    return fig

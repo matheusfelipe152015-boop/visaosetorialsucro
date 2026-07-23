@@ -29,9 +29,11 @@ from src.mercado_visual import (
     fig_basis,
     fig_basis_spread,
     fig_cftc,
+    fig_cftc_oi,
     fig_curva_ny11,
     fig_finviz,
     fig_paulinia,
+    fig_petrobras_reajustes,
     fig_usda_balanco,
     fig_vendas_hidratado,
 )
@@ -146,10 +148,34 @@ with _e4:
     else:
         st.caption("Rode o coletor ABICOM para preencher.")
 
-st.markdown("**Vendas mensais de etanol hidratado no Brasil (ANP)**")
-_f = fig_vendas_hidratado()
-if _f:
-    st.plotly_chart(_f, width="stretch")
+_p1, _p2 = st.columns(2)
+with _p1:
+    st.markdown("**Vendas mensais de etanol hidratado no Brasil (ANP)**")
+    _f = fig_vendas_hidratado()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+with _p2:
+    st.markdown("**Reajustes da Petrobras nas refinarias**")
+    _f = fig_petrobras_reajustes()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+    else:
+        st.caption("Rode o coletor de reajustes para preencher.")
+
+
+_e5, _e6 = st.columns(2)
+with _e5:
+    st.markdown("**Reajustes da Petrobras nas refinarias**")
+    _f = fig_petrobras_reajustes()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+    else:
+        st.caption("Rode o coletor de reajustes da Petrobras para preencher.")
+with _e6:
+    st.markdown("**Açúcar — contratos em aberto e fundos indexados**")
+    _f = fig_cftc_oi()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
 
 _sec("Performance de ativos no ano", "por classe (finviz)")
 _cats = categorias_finviz()

@@ -207,3 +207,97 @@ class UnicaSndCollector:
 
 
 COLETORES_ETANOL.append(UnicaSndCollector)
+
+
+# ── Petrobras — reajustes de preço nas refinarias ─────────────────────────
+class PetrobrasReajustesCollector:
+    """Cada anúncio de reajuste de diesel/gasolina, com preço antes e depois."""
+
+    source_code = SOURCE_CODE
+    version = "0.1.0"
+
+    def _coletar(self):
+        linhas = _linhas("petrobras_reajustes.csv")
+        n = 0
+        with get_engine().begin() as conn:
+            for r in linhas:
+                d = _data(r.get("data"))
+                produto = (r.get("produto") or "").strip()
+                if not d or not produto:
+                    continue
+                p = {"id": uuid.uuid4().hex, "d": d, "prod": produto,
+                     "tipo": (r.get("tipo") or "").strip(),
+                     "ant": _num(r.get("preco_anterior_rs_l")),
+                     "novo": _num(r.get("preco_novo_rs_l")),
+                     "dl": _num(r.get("delta_rs_l")),
+                     "dp": _num(r.get("delta_pct")),
+                     "desc": (r.get("descricao") or "").strip(),
+                     "dc": datetime.utcnow()}
+                existe = conn.execute(
+                    text("SELECT 1 FROM petrobras_reajustes WHERE data_ref=:d "
+                         "AND produto=:prod"), {"d": d, "prod": produto}).first()
+                if existe:
+                    conn.execute(text("""UPDATE petrobras_reajustes
+                        SET tipo=:tipo, preco_anterior_rs_l=:ant,
+                            preco_novo_rs_l=:novo, delta_rs_l=:dl, delta_pct=:dp,
+                            descricao=:desc WHERE data_ref=:d AND produto=:prod"""), p)
+                else:
+                    conn.execute(text("""INSERT INTO petrobras_reajustes
+                        (id,data_ref,produto,tipo,preco_anterior_rs_l,preco_novo_rs_l,
+                         delta_rs_l,delta_pct,descricao,data_coleta)
+                        VALUES(:id,:d,:prod,:tipo,:ant,:novo,:dl,:dp,:desc,:dc)"""), p)
+                    n += 1
+        return len(linhas), n
+
+    def run(self):
+        return _rodar("petrobras", self._coletar)
+
+
+COLETORES_ETANOL.append(PetrobrasReajustesCollector)
+
+
+# ── Petrobras — reajustes de preço nas refinarias ─────────────────────────
+class PetrobrasReajustesCollector:
+    """Histórico de reajustes de gasolina e diesel anunciados pela Petrobras."""
+
+    source_code = SOURCE_CODE
+    version = "0.1.0"
+
+    def _coletar(self):
+        linhas = _linhas("petrobras_reajustes.csv")
+        n = 0
+        with get_engine().begin() as conn:
+            for r in linhas:
+                d = _data(r.get("data"))
+                produto = (r.get("produto") or "").strip()
+                if not d or not produto:
+                    continue
+                p = {"id": uuid.uuid4().hex, "d": d, "prod": produto,
+                     "tipo": (r.get("tipo") or "").strip(),
+                     "ant": _num(r.get("preco_anterior_rs_l")),
+                     "novo": _num(r.get("preco_novo_rs_l")),
+                     "delta": _num(r.get("delta_rs_l")),
+                     "pct": _num(r.get("delta_pct")),
+                     "desc": (r.get("descricao") or "").strip()[:400],
+                     "dc": datetime.utcnow()}
+                existe = conn.execute(
+                    text("SELECT 1 FROM petrobras_reajustes WHERE data_ref=:d "
+                         "AND produto=:prod"), {"d": d, "prod": produto}).first()
+                if existe:
+                    conn.execute(text("""UPDATE petrobras_reajustes
+                        SET preco_anterior_rs_l=:ant, preco_novo_rs_l=:novo,
+                            delta_rs_l=:delta, delta_pct=:pct, descricao=:desc,
+                            tipo=:tipo WHERE data_ref=:d AND produto=:prod"""), p)
+                else:
+                    conn.execute(text("""INSERT INTO petrobras_reajustes
+                        (id,data_ref,produto,tipo,preco_anterior_rs_l,preco_novo_rs_l,
+                         delta_rs_l,delta_pct,descricao,data_coleta)
+                        VALUES(:id,:d,:prod,:tipo,:ant,:novo,:delta,:pct,:desc,:dc)"""), p)
+                    n += 1
+        return len(linhas), n
+
+    def run(self):
+        return _rodar("petrobras_reajustes", self._coletar)
+
+
+COLETORES_ETANOL.append(PetrobrasReajustesCollector)

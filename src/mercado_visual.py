@@ -99,13 +99,18 @@ def fig_finviz(categoria: str | None = None) -> go.Figure | None:
     d = d.dropna(subset=["perf_ytd"]).sort_values("perf_ytd")
     if d.empty:
         return None
-    d["cor"] = d["perf_ytd"].apply(lambda v: VERDE if v >= 0 else TERRACOTA)
-    fig = go.Figure(go.Bar(
-        x=d["perf_ytd"], y=d["nome"].fillna(d["ticker"]), orientation="h",
-        marker_color=d["cor"], text=d["perf_ytd"].round(1),
-        textposition="outside"))
-    fig.update_layout(**_LAYOUT, height=max(300, 22 * len(d) + 60),
-                      xaxis_title="Performance no ano (%)", yaxis_title="")
+    rotulo = d["nome"].fillna(d["ticker"])
+    fig = go.Figure()
+    fig.add_bar(x=d["perf_ytd"], y=rotulo, orientation="h", name="No ano",
+                marker_color=VERDE, text=d["perf_ytd"].round(1),
+                textposition="outside", cliponaxis=False)
+    if "perf_1y" in d.columns and d["perf_1y"].notna().any():
+        fig.add_bar(x=d["perf_1y"], y=rotulo, orientation="h", name="12 meses",
+                    marker_color="#9CBFAE",
+                    hovertemplate="<b>%{y}</b><br>12m: %{x:.1f}%<extra></extra>")
+    fig.update_layout(**_LAYOUT, height=max(300, 30 * len(d) + 70), barmode="group",
+                      xaxis_title="Performance (%)", yaxis_title="",
+                      legend=dict(orientation="h", y=1.02, x=0))
     return fig
 
 
@@ -260,6 +265,53 @@ def fig_usda_balanco() -> go.Figure | None:
     fig.update_layout(**_LAYOUT, height=340, barmode="group",
                       yaxis_title="mil t", xaxis_title="",
                       yaxis2=dict(title="Estoque/uso (%)", overlaying="y",
+                                  side="right", showgrid=False),
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig
+
+
+def fig_petrobras_reajustes() -> go.Figure | None:
+    """Preço nas refinarias a cada reajuste anunciado (diesel e gasolina)."""
+    d = _df("""SELECT data_ref, produto, preco_novo_rs_l, delta_pct
+               FROM petrobras_reajustes WHERE preco_novo_rs_l IS NOT NULL
+               ORDER BY data_ref""")
+    if d.empty:
+        return None
+    d["data_ref"] = pd.to_datetime(d["data_ref"])
+    cores = {"Gasolina": AMBAR, "Diesel": TERRACOTA, "Gás natural": VERDE}
+    fig = go.Figure()
+    for produto, sub in d.groupby("produto"):
+        fig.add_trace(go.Scatter(
+            x=sub["data_ref"], y=sub["preco_novo_rs_l"], name=str(produto),
+            mode="lines+markers", line_shape="hv",
+            line=dict(color=cores.get(str(produto), VERDE), width=2),
+            customdata=sub["delta_pct"],
+            hovertemplate="%{x|%d/%m/%Y}<br>R$ %{y:.2f}/L "
+                          "(%{customdata:+.1f}%)<extra></extra>"))
+    fig.update_layout(**_LAYOUT, height=300, xaxis_title="",
+                      yaxis_title="R$/L na refinaria",
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig
+
+
+def fig_cftc_oi() -> go.Figure | None:
+    """Contratos em aberto e posição dos fundos indexados no açúcar."""
+    d = _df("SELECT data_ref, open_interest, idx_net FROM cftc_sugar "
+            "ORDER BY data_ref")
+    if d.empty:
+        return None
+    d["data_ref"] = pd.to_datetime(d["data_ref"])
+    d = d[d["data_ref"] >= d["data_ref"].max() - pd.Timedelta(days=1095)]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=d["data_ref"], y=d["open_interest"],
+                             name="Contratos em aberto", mode="lines",
+                             line=dict(color=VERDE, width=2)))
+    fig.add_trace(go.Scatter(x=d["data_ref"], y=d["idx_net"], name="Fundos indexados",
+                             mode="lines", yaxis="y2",
+                             line=dict(color=AMBAR, width=2)))
+    fig.update_layout(**_LAYOUT, height=300, xaxis_title="",
+                      yaxis_title="Contratos em aberto",
+                      yaxis2=dict(title="Indexados (net)", overlaying="y",
                                   side="right", showgrid=False),
                       legend=dict(orientation="h", y=1.02, x=0))
     return fig

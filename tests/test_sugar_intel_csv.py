@@ -39,9 +39,14 @@ def test_unica_filtra_centro_sul_acumulado():
            "2024/2025,2026-04-01,Norte-Nordeste,acumulado,10000,500,0,0,0,0,"
            "100,40,60,45,55\n")
     v = UnicaQuinzenalCollector().parse(csv)
-    # só a linha Centro-Sul acumulado deve entrar (3 indicadores)
-    assert len(v) == 3
-    assert {x.indicator_code for x in v} == {"moagem_cs", "mix_acucar_etanol", "atr_medio"}
+    # só a linha Centro-Sul acumulado deve entrar (5 indicadores)
+    assert len(v) == 5
+    assert {x.indicator_code for x in v} == {
+        "moagem_cs", "mix_acucar_etanol", "atr_medio",
+        "producao_acucar", "producao_etanol"}
+    # moagem vem em mil t no CSV e é gravada em Mt
+    moagem = next(x for x in v if x.indicator_code == "moagem_cs")
+    assert round(moagem.valor, 3) == round(621927 / 1000, 3)
 
 
 def test_ignora_valores_vazios():
