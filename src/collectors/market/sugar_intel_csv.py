@@ -185,7 +185,49 @@ class UsdaAcucarCollector(_CsvIndicatorCollector):
         return out
 
 
+# ── Etanol hidratado Paulínia (CEPEA) — R$/m³, diário ─────────────────────
+class CepeaEtanolPauliniaCollector(_CsvIndicatorCollector):
+    """Benchmark do hidratado mais usado pelo setor (indicador diário)."""
+
+    arquivo = "cepea_etanol_paulinia.csv"
+
+    def parse(self, texto):
+        out = []
+        for r in csv.DictReader(io.StringIO(texto)):
+            d = _data(r.get("data"))
+            v = _num(r.get("preco_r$_m3"))
+            if d and v is not None:
+                out.append(_iv("etanol_paulinia", d, v, "R$/m³", "BRL", self._url()))
+        return out
+
+
+# ── ANP — vendas mensais de etanol hidratado (Brasil) ─────────────────────
+class AnpVendasHidratadoCollector(_CsvIndicatorCollector):
+    """Soma as vendas de hidratado de todas as UFs por mês."""
+
+    arquivo = "anp_vendas.csv"
+
+    def parse(self, texto):
+        totais: dict[date, float] = {}
+        for r in csv.DictReader(io.StringIO(texto)):
+            produto = (r.get("produto") or "").strip().upper()
+            if "ETANOL" not in produto or "HIDRATADO" not in produto:
+                continue
+            v = _num(r.get("vendas_m3"))
+            try:
+                ano, mes = int(r.get("ano")), int(r.get("mes"))
+            except (TypeError, ValueError):
+                continue
+            if v is None:
+                continue
+            d = date(ano, mes, 1)
+            totais[d] = totais.get(d, 0.0) + v
+        return [_iv("vendas_combustiveis", d, v, "m³", None, self._url())
+                for d, v in sorted(totais.items())]
+
+
 COLETORES_SUGAR_INTEL = [
     CepeaAcucarSpCollector, CepeaEtanolSpCollector, OilBrentCollector,
     UnicaQuinzenalCollector, UsdaAcucarCollector,
+    CepeaEtanolPauliniaCollector, AnpVendasHidratadoCollector,
 ]

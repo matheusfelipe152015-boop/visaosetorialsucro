@@ -57,6 +57,7 @@ INDICATORS = [
     # Etanol
     ("etanol_hidratado", "Etanol hidratado (SP)", "Etanol", "R$/L", "BRL", "unit", "cepea", "daily", 1),
     ("etanol_anidro_sp", "Etanol anidro (SP)", "Etanol", "R$/L", "BRL", "unit", "cepea", "daily", 0),
+    ("etanol_paulinia", "Etanol hidratado Paulínia", "Etanol", "R$/m³", "BRL", "unit", "sugar_intel", "daily", 1),
     ("preco_gasolina", "Gasolina comum (revenda)", "Etanol", "R$/L", "BRL", "unit", "anp", "weekly", 0),
     ("preco_gasolina_aditivada", "Gasolina aditivada (revenda)", "Etanol", "R$/L", "BRL", "unit", "anp", "weekly", 0),
     ("preco_etanol", "Etanol hidratado (revenda)", "Etanol", "R$/L", "BRL", "unit", "anp", "weekly", 0),

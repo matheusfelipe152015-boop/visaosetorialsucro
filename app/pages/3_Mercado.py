@@ -23,10 +23,15 @@ from src.domain.freshness import freshness_status
 from src.mercado_visual import (
     categorias_finviz,
     enso_atual,
+    fig_abicom,
+    fig_b3_curva,
+    fig_base_sp_go,
     fig_basis,
     fig_cftc,
     fig_curva_ny11,
     fig_finviz,
+    fig_paulinia,
+    fig_vendas_hidratado,
 )
 from src.persistence.db import fetch_df, init_schema
 from src.theme import CANE, apply_theme, chip, fresh_badge, plotly_template
@@ -91,6 +96,44 @@ if _f:
     st.plotly_chart(_f, width="stretch")
 else:
     st.caption("Rode o coletor de basis para preencher.")
+
+_sec("Etanol — preço, curva e paridade", "hidratado Paulínia, B3, base regional e ABICOM")
+_e1, _e2 = st.columns(2)
+with _e1:
+    st.markdown("**Hidratado Paulínia (CEPEA) — R$/m³**")
+    _f = fig_paulinia()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+    else:
+        st.caption("Rode o coletor do Paulínia para preencher.")
+with _e2:
+    st.markdown("**Curva forward do etanol (B3)**")
+    _f = fig_b3_curva()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+    else:
+        st.caption("Rode o coletor da B3 para preencher.")
+
+_e3, _e4 = st.columns(2)
+with _e3:
+    st.markdown("**Base do hidratado — usina SP menos GO (R$/L)**")
+    _f = fig_base_sp_go()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+    else:
+        st.caption("Rode o coletor da base SP-GO para preencher.")
+with _e4:
+    st.markdown("**Defasagem da paridade de importação (ABICOM)**")
+    _f = fig_abicom()
+    if _f:
+        st.plotly_chart(_f, width="stretch")
+    else:
+        st.caption("Rode o coletor ABICOM para preencher.")
+
+st.markdown("**Vendas mensais de etanol hidratado no Brasil (ANP)**")
+_f = fig_vendas_hidratado()
+if _f:
+    st.plotly_chart(_f, width="stretch")
 
 _sec("Performance de ativos no ano", "por classe (finviz)")
 _cats = categorias_finviz()
