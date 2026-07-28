@@ -18,6 +18,8 @@ import plotly.graph_objects as go
 VERDE = "#14573A"
 AMBAR = "#C6881C"
 TINTA = "#18241F"
+TERRACOTA = "#B4462E"
+TINTA_SUAVE = "#5C6B63"
 LINHA = "#E6E2D6"
 CSV_URL = "https://strongylis.github.io/sugar-intel/data/unica_quinzenal.csv"
 _HEADERS = {"User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -310,4 +312,38 @@ def fig_acucar_mensal() -> go.Figure | None:
     fig = px.bar(x=piv.index, y=piv["Sugar (Mt)"], color_discrete_sequence=[AMBAR])
     fig.update_traces(hovertemplate="%{x|%m/%Y}<br>%{y:.2f} Mt<extra></extra>")
     fig.update_layout(**_LAYOUT, height=300, yaxis_title="Mt no mês", xaxis_title="")
+    return fig
+
+
+def fig_anidro_hidratado() -> go.Figure | None:
+    """Vendas (outflows) de etanol por tipo: anidro (mistura) vs hidratado (bomba)."""
+    piv = _serie_snd(["Outflows Anhydrous (bi L)", "Outflows Hydrous (bi L)"])
+    if piv.empty:
+        return None
+    fig = go.Figure()
+    if "Outflows Hydrous (bi L)" in piv.columns:
+        fig.add_bar(x=piv.index, y=piv["Outflows Hydrous (bi L)"],
+                    name="Hidratado (bomba)", marker_color=VERDE)
+    if "Outflows Anhydrous (bi L)" in piv.columns:
+        fig.add_bar(x=piv.index, y=piv["Outflows Anhydrous (bi L)"],
+                    name="Anidro (mistura)", marker_color=AMBAR)
+    fig.update_layout(**_LAYOUT, height=320, barmode="stack",
+                      yaxis_title="bi L no mês", xaxis_title="",
+                      legend=dict(orientation="h", y=1.02, x=0))
+    return fig
+
+
+def fig_saldo_etanol() -> go.Figure | None:
+    """Saldo mensal: produção menos vendas (Net). Positivo = estoque sobe."""
+    piv = _serie_snd(["Net (inflows − outflows, bi L)"])
+    col = "Net (inflows − outflows, bi L)"
+    if piv.empty or col not in piv.columns:
+        return None
+    s = piv[col]
+    cores = [VERDE if v >= 0 else TERRACOTA for v in s]
+    fig = go.Figure(go.Bar(x=s.index, y=s.values, marker_color=cores,
+                           hovertemplate="%{x|%m/%Y}<br>Saldo %{y:+.2f} bi L<extra></extra>"))
+    fig.add_hline(y=0, line_color=TINTA_SUAVE, line_width=1)
+    fig.update_layout(**_LAYOUT, height=300, yaxis_title="Produção − vendas (bi L)",
+                      xaxis_title="")
     return fig

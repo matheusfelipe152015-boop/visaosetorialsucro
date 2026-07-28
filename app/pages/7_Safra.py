@@ -28,14 +28,13 @@ from src.persistence.db import fetch_df, init_schema
 from src.safra_visual import (
     carregar_unica,
     fig_acucar_mensal,
+    fig_anidro_hidratado,
     fig_atr,
     fig_atr_chuva_mensal,
     fig_etanol_milho,
     fig_mix,
     fig_moagem,
-    fig_moagem_mensal,
-    fig_snd_anidro_hidratado,
-    fig_snd_atr,
+    fig_saldo_etanol,
     fig_snd_mensal,
     fig_snd_moagem_mix,
     resumo_safra_atual,
@@ -133,11 +132,11 @@ if _unica is not None and not _unica.empty:
                 unsafe_allow_html=True)
     st.divider()
 
-_sec_safra("Safra mês a mês", "moagem, mix, açúcar e ATR do Centro-Sul (UNICA)")
+_sec_safra("Safra mês a mês", "Centro-Sul (UNICA)")
 _m1, _m2 = st.columns(2)
 with _m1:
     st.markdown("**Cana moída e mix de açúcar**")
-    _f = fig_moagem_mensal()
+    _f = fig_snd_moagem_mix()
     if _f:
         st.plotly_chart(_f, width="stretch")
     else:
@@ -161,20 +160,15 @@ if _f:
 else:
     st.caption("Rode o coletor unica_snd para preencher.")
 
-_sec_safra("Moagem e mix mês a mês", "cana moída, açúcar produzido e o mix (UNICA)")
-_f = fig_snd_moagem_mix()
-if _f:
-    st.plotly_chart(_f, width="stretch")
-
-_m1, _m2 = st.columns(2)
-with _m1:
-    st.markdown("**Produção de etanol por tipo**")
-    _f = fig_snd_anidro_hidratado()
+_a1, _a2 = st.columns(2)
+with _a1:
+    st.markdown("**Vendas por tipo — anidro × hidratado**")
+    _f = fig_anidro_hidratado()
     if _f:
         st.plotly_chart(_f, width="stretch")
-with _m2:
-    st.markdown("**ATR médio mensal**")
-    _f = fig_snd_atr()
+with _a2:
+    st.markdown("**Saldo do mês (produção − vendas)**")
+    _f = fig_saldo_etanol()
     if _f:
         st.plotly_chart(_f, width="stretch")
 
